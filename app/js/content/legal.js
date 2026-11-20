@@ -43,7 +43,7 @@ export const LEGAL_PAGES = {
         heading: 'Reading your CV',
         paragraphs: [
           'The CV check and “Fill in my profile from my CV” read your CV and LinkedIn PDF on your device, using readers that are part of the app. Your files aren’t uploaded or sent to us, and the results stay on this device.',
-          'If your CV is a scanned image, the app can read it with OCR (text recognition), also on your device. The first time, it downloads the OCR engine (about 7 MB) from the same place as the app. Nothing about your CV is sent.',
+          'If your CV is a scanned image, the app can read it with OCR (text recognition), also on your device. The first time, it downloads the OCR engine (about 5 MB) from the same place as the app. Nothing about your CV is sent.',
           'If you’ve switched on Help improve the app, we only learn that one of these features was used. We never learn what your CV says, what it scored, or what was filled in.',
         ],
       },

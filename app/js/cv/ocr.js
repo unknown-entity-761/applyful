@@ -9,7 +9,7 @@
 
 import { loadPdfJs, makeLine, CvReadError } from './extract.js';
 
-export const OCR_DOWNLOAD_MB = 7;
+export const OCR_DOWNLOAD_MB = 5; // measured on GitHub Pages: engine 1.4 MB compressed + English model 3 MB
 const MAX_PAGES = 4;
 const SCALE = 2.5; // draws an A4 page about 1,500 pixels wide, sharp enough to read
 
