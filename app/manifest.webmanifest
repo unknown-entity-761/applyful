@@ -1,6 +1,6 @@
 {
-  "name": "Job Application Tracker",
-  "short_name": "Job Tracker",
+  "name": "Foliofy - Application tracker",
+  "short_name": "Foliofy",
   "description": "Track every job application, portal login and follow-up in one place.",
   "id": "./",
   "start_url": "./",

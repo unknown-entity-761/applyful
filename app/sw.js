@@ -2,7 +2,7 @@
 // Strategy: try the network first (so updates show up right away), and fall back
 // to the saved copy when offline. Your data isn't here; it lives in IndexedDB.
 
-const CACHE = 'job-tracker-v5';
+const CACHE = 'job-tracker-v6';
 
 const APP_FILES = [
   './',

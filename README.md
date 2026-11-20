@@ -1,6 +1,6 @@
-# Job Application Tracker
+# Foliofy - Application tracker
 
-Working name; the app name lives in `app/js/config.js`, `app/index.html` and `app/manifest.webmanifest`.
+Live at https://unknown-entity-761.github.io/foliofy/. The app name lives in `app/js/config.js`, `app/index.html` and `app/manifest.webmanifest`.
 
 A phone-first web app for tracking job applications across Workday, SuccessFactors and other portals. It opens in a phone browser, can be added to the home screen like a normal app, and works offline. Everything is saved on the device; there is no account and no server.
 

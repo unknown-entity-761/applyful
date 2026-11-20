@@ -27,7 +27,7 @@ $types = @{
 $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add("http://localhost:$Port/")
 $listener.Start()
-Write-Host "Job Tracker is running at http://localhost:$Port/"
+Write-Host "Foliofy is running at http://localhost:$Port/"
 
 try {
     while ($listener.IsListening) {
