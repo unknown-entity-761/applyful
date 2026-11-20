@@ -993,7 +993,25 @@ details.more p { margin-top: 6px; font-size: 14px; color: var(--text-2); }
 .cv-check-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 8px 0; }
 .cv-check-text .muted { font-size: 14px; }
 
-.loading { flex-direction: row; align-items: center; gap: 12px; }
+.loading { display: flex; flex-direction: row; align-items: center; gap: 12px; }
+.loading-block { gap: 14px; }
+
+/* ---- Profile filled in from a CV: what came from the file is highlighted ---- */
+
+.from-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+.field.from-file input,
+.field.from-file textarea { border-color: var(--brand); }
+.repeat-item.from-file { border-color: var(--brand); box-shadow: inset 3px 0 0 var(--brand); }
 .spinner {
   flex: none;
   width: 22px;

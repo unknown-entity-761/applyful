@@ -4,19 +4,10 @@
 
 import { html, raw, icon, createScreen, mount, showToast, plural } from '../ui.js';
 import { DOC_KINDS, MAX_DOC_BYTES, getProfile, getDocument, saveDocumentFile, getCvCheck, saveCvCheck } from '../profile.js';
-import { extractCv, CvReadError } from '../cv/extract.js';
+import { extractCv, CvReadError, readErrorMessage } from '../cv/extract.js';
 import { checkCv, scoreCv, SEVERITIES } from '../cv/rules.js';
 import { track } from '../analytics.js';
 import { subHeader, wireBack } from './components.js';
-
-const READ_ERRORS = {
-  'old-word': 'This is an older Word file (.doc), which the check can’t read. In Word, choose File, then Save As, and pick PDF or Word Document (.docx). Then try again.',
-  unsupported: 'The check reads PDF and Word (.docx) files. Save your CV as one of those and try again.',
-  damaged: 'This file couldn’t be opened. It may be damaged. Try exporting it again as a PDF.',
-  locked: 'This PDF has a password. Save a copy without one and try again.',
-  reader: 'The PDF reader didn’t load. Check your internet connection and try again. Once it has loaded, the check also works offline.',
-  'old-browser': 'This browser is too old to read Word files. Update it, or save your CV as a PDF.',
-};
 
 // Fixes whose quotes come from your profile or LinkedIn, not from the CV itself.
 const NOT_ON_CV = new Set(['mismatch', 'missing-skills']);
@@ -183,7 +174,7 @@ function errorBody(state) {
   return html`
     <section class="panel">
       <h2 class="callout-title danger-text">${icon('info')} This file couldn’t be checked</h2>
-      <p>${READ_ERRORS[state.outcome.error] ?? READ_ERRORS.damaged}</p>
+      <p>${readErrorMessage(state.outcome.error)}</p>
       <p class="hint">${state.file.name}</p>
     </section>`;
 }

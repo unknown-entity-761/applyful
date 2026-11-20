@@ -26,6 +26,21 @@ export class CvReadError extends Error {
   }
 }
 
+const READ_ERRORS = {
+  'old-word': 'This is an older Word file (.doc), which the app can’t read. In Word, choose File, then Save As, and pick PDF or Word Document (.docx). Then try again.',
+  unsupported: 'The app reads PDF and Word (.docx) files. Save your CV as one of those and try again.',
+  damaged: 'This file couldn’t be opened. It may be damaged. Try exporting it again as a PDF.',
+  locked: 'This PDF has a password. Save a copy without one and try again.',
+  reader: 'The reader didn’t load. Check your internet connection and try again. Once it has loaded, it also works offline.',
+  'old-browser': 'This browser is too old to read Word files. Update it, or save your CV as a PDF.',
+};
+
+/** A plain-English message for a CvReadError code. */
+export const readErrorMessage = (code) => READ_ERRORS[code] ?? READ_ERRORS.damaged;
+
+/** True when a read file has real text (not a scan or a picture). */
+export const hasReadableText = (doc) => doc.lines.reduce((sum, line) => sum + line.text.split(/\s+/).length, 0) >= 40;
+
 export async function extractCv(buffer, { name = '' } = {}) {
   const head = new Uint8Array(buffer, 0, Math.min(8, buffer.byteLength));
   const startsWith = (...bytes) => bytes.every((byte, i) => head[i] === byte);
@@ -45,7 +60,8 @@ function tidy(text) {
   return text.replace(/[​-‍﻿­]/g, '').replace(/\s+/g, ' ').trim();
 }
 
-function makeLine(rawText, page, heading = false, bullet = false) {
+/** One line of the CV. `size` is the text height (PDFs only), used to spot the name at the top. */
+export function makeLine(rawText, page, heading = false, bullet = false, size = 0) {
   let text = tidy(rawText);
   let marker = '';
   const match = BULLET.exec(text);
@@ -54,14 +70,15 @@ function makeLine(rawText, page, heading = false, bullet = false) {
     marker = match[1];
     text = text.slice(match[0].length);
   }
-  return { text, page, bullet: bullet || Boolean(marker), marker, heading };
+  return { text, page, bullet: bullet || Boolean(marker), marker, heading, size };
 }
 
 // ---- PDF ----
 
 let pdfjsPromise = null;
 
-function loadPdfJs() {
+/** Loads pdf.js once. Also used by ocr.js to draw scanned pages as pictures. */
+export function loadPdfJs() {
   if (!pdfjsPromise) {
     pdfjsPromise = import('../../vendor/pdfjs/pdf.min.mjs')
       .then((pdfjs) => {
@@ -132,12 +149,14 @@ function pdfLines(items, page) {
   let lastY = null;
   let lastEnd = null;
   let lastSize = 0;
+  let lineSize = 0;
 
   const flush = () => {
-    if (tidy(text)) lines.push(makeLine(text, page));
+    if (tidy(text)) lines.push(makeLine(text, page, false, false, Math.round(lineSize * 10) / 10));
     text = '';
     lastY = null;
     lastEnd = null;
+    lineSize = 0;
   };
 
   for (const item of items) {
@@ -156,6 +175,7 @@ function pdfLines(items, page) {
       lastY = y;
       lastEnd = x + (item.width || 0);
       lastSize = size;
+      if (item.str.trim()) lineSize = Math.max(lineSize, size);
     }
     if (item.hasEOL) flush();
   }

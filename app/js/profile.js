@@ -1,12 +1,13 @@
-// Your profile: who you are, your experience, education and skills, plus your
-// CV and LinkedIn files. For now you fill it in yourself. In version 2 the app
-// also reads your CV and LinkedIn export to fill it in, and cover letters and
-// job matches use it.
+// Your profile: who you are, your experience, education, projects, certifications
+// and skills, plus your CV and LinkedIn files. You can fill it in yourself, or have
+// the app read your CV or LinkedIn PDF into it (cv/parse.js), then check it before
+// saving. Cover letters and job matches will use it later.
 
 import { STORES, getRecord, putRecords, deleteRecord, clearStore } from './store.js';
 import { getPref, setPref } from './prefs.js';
 import { makeId, normalizeUrl } from './model.js';
 import { safeHttpUrl } from './ui.js';
+import { norm, normCompany } from './cv/text.js';
 
 const PROFILE_ID = 'me';
 const LEGACY_NAME_KEY = 'jt-first-name'; // where the first name was kept before profiles existed
@@ -31,6 +32,8 @@ export const DOC_KINDS = {
  *   skills      ['SQL', 'Python', ...]
  *   experience  [{ id, title, company, start 'YYYY-MM', end 'YYYY-MM' or '', current, description }]
  *   education   [{ id, school, qualification, start 'YYYY-MM', end 'YYYY-MM' }]
+ *   projects    [{ id, name, link, start, end, description }]
+ *   certifications [{ id, name, issuer, issued 'YYYY-MM', link }]
  *   updatedAt   ISO timestamp
  */
 export function blankProfile() {
@@ -43,6 +46,14 @@ export function blankJob() {
 
 export function blankEducation() {
   return { id: makeId(), school: '', qualification: '', start: '', end: '' };
+}
+
+export function blankProject() {
+  return { id: makeId(), name: '', link: '', start: '', end: '', description: '' };
+}
+
+export function blankCertification() {
+  return { id: makeId(), name: '', issuer: '', issued: '', link: '' };
 }
 
 const text = (value, max) => String(value ?? '').trim().slice(0, max);
@@ -88,6 +99,27 @@ function cleanEducation(item = {}) {
   };
 }
 
+function cleanProject(item = {}) {
+  return {
+    id: itemId(item.id),
+    name: text(item.name, 120),
+    link: normalizeUrl(text(item.link, 300)),
+    start: month(item.start),
+    end: month(item.end),
+    description: longText(item.description, 2000),
+  };
+}
+
+function cleanCertification(item = {}) {
+  return {
+    id: itemId(item.id),
+    name: text(item.name, 160),
+    issuer: text(item.issuer, 120),
+    issued: month(item.issued),
+    link: normalizeUrl(text(item.link, 300)),
+  };
+}
+
 export function normalizeProfile(input = {}) {
   const list = (value) => (Array.isArray(value) ? value : []);
   return {
@@ -104,8 +136,62 @@ export function normalizeProfile(input = {}) {
     skills: cleanSkills(input.skills),
     experience: list(input.experience).map(cleanJob).filter((job) => job.title || job.company).slice(0, 30),
     education: list(input.education).map(cleanEducation).filter((item) => item.school || item.qualification).slice(0, 20),
+    projects: list(input.projects).map(cleanProject).filter((item) => item.name).slice(0, 30),
+    certifications: list(input.certifications).map(cleanCertification).filter((item) => item.name).slice(0, 40),
     updatedAt: typeof input.updatedAt === 'string' ? input.updatedAt : '',
   };
+}
+
+/**
+ * Adds what was read from a CV or LinkedIn PDF to a profile, without overwriting
+ * anything you've entered yourself ("your edits always win"):
+ *   - a detail like your phone number is only filled in if it's empty,
+ *   - jobs, education, projects and certifications are added if they aren't there yet,
+ *   - new skills are added to the end.
+ * Returns { profile, filled } where `filled` says what came from the file, so the
+ * review screen can highlight it.
+ */
+export function mergeIntoProfile(current, found) {
+  const profile = normalizeProfile(current);
+  const incoming = normalizeProfile(found);
+  const filled = { fields: [], skills: [], items: new Set() };
+
+  for (const key of ['firstName', 'lastName', 'headline', 'location', 'email', 'phone', 'linkedinUrl', 'summary']) {
+    if (!profile[key] && incoming[key]) {
+      profile[key] = incoming[key];
+      filled.fields.push(key);
+    }
+  }
+
+  const known = new Set(profile.skills.map((skill) => skill.toLowerCase()));
+  for (const skill of incoming.skills) {
+    if (!known.has(skill.toLowerCase()) && profile.skills.length < 50) {
+      profile.skills.push(skill);
+      known.add(skill.toLowerCase());
+      filled.skills.push(skill);
+    }
+  }
+
+  const same = {
+    experience: (a, b) => normCompany(a.company) === normCompany(b.company) && (norm(a.title) === norm(b.title) || (a.start && a.start === b.start)),
+    education: (a, b) => (a.school && norm(a.school) === norm(b.school)) || (a.qualification && norm(a.qualification) === norm(b.qualification)),
+    projects: (a, b) => norm(a.name) === norm(b.name),
+    certifications: (a, b) => norm(a.name) === norm(b.name),
+  };
+  let addedJobs = false;
+  for (const [kind, matches] of Object.entries(same)) {
+    for (const item of incoming[kind]) {
+      if (profile[kind].some((existing) => matches(existing, item))) continue;
+      const added = { ...item, id: makeId() };
+      profile[kind].push(added);
+      filled.items.add(added.id);
+      if (kind === 'experience') addedJobs = true;
+    }
+  }
+  // Newest jobs first, as on a CV (only re-sorted when jobs were added).
+  if (addedJobs) profile.experience.sort((a, b) => (b.current - a.current) || (b.start || '').localeCompare(a.start || ''));
+
+  return { profile, filled };
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -119,7 +205,8 @@ export function validateProfile(profile) {
 
 export function isProfileEmpty(profile) {
   const textFields = ['firstName', 'lastName', 'headline', 'location', 'email', 'phone', 'linkedinUrl', 'summary', 'targetRoles'];
-  return textFields.every((key) => !profile[key]) && !profile.skills.length && !profile.experience.length && !profile.education.length;
+  return textFields.every((key) => !profile[key]) &&
+    ['skills', 'experience', 'education', 'projects', 'certifications'].every((key) => !profile[key].length);
 }
 
 export function fullName(profile) {

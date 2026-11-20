@@ -3,12 +3,14 @@
   "version": "3.0.0",
   "private": true,
   "type": "module",
-  "description": "Phone-first job application tracker. The app itself is plain files in app/; npm is only used to fetch the PDF reader (pdf.js) that the CV check uses.",
+  "description": "Foliofy, a phone-first job application tracker. The app itself is plain files in app/; npm only fetches the PDF reader (pdf.js) and OCR engine (Tesseract) that npm run vendor copies into app/vendor.",
   "scripts": {
-    "vendor": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/vendor-pdfjs.ps1",
+    "vendor": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/vendor.ps1",
     "serve": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/serve.ps1"
   },
   "devDependencies": {
-    "pdfjs-dist": "6.5.438"
+    "@tesseract.js-data/eng": "1.0.0",
+    "pdfjs-dist": "6.5.438",
+    "tesseract.js": "7.0.0"
   }
 }

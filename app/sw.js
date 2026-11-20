@@ -2,7 +2,7 @@
 // Strategy: try the network first (so updates show up right away), and fall back
 // to the saved copy when offline. Your data isn't here; it lives in IndexedDB.
 
-const CACHE = 'job-tracker-v6';
+const CACHE = 'job-tracker-v7';
 
 const APP_FILES = [
   './',
@@ -23,7 +23,10 @@ const APP_FILES = [
   './js/install.js',
   './js/content/legal.js',
   './js/cv/extract.js',
+  './js/cv/ocr.js',
+  './js/cv/parse.js',
   './js/cv/rules.js',
+  './js/cv/text.js',
   './js/cv/zip.js',
   './vendor/pdfjs/pdf.min.mjs',
   './vendor/pdfjs/pdf.worker.min.mjs',
@@ -35,6 +38,7 @@ const APP_FILES = [
   './js/views/activity.js',
   './js/views/profile.js',
   './js/views/profile-edit.js',
+  './js/views/profile-import.js',
   './js/views/form.js',
   './js/views/detail.js',
   './js/views/settings.js',

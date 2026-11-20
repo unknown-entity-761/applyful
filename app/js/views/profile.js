@@ -14,6 +14,7 @@ import {
   openDocument,
   getCvCheck,
 } from '../profile.js';
+import { navigate } from '../router.js';
 import { tabBar } from './components.js';
 
 export async function renderProfile(ctx, scrollY = 0) {
@@ -58,6 +59,11 @@ export async function renderProfile(ctx, scrollY = 0) {
         <h2 class="panel-title">${icon('file')} CV and LinkedIn</h2>
         ${docRow('cv', docs.cv)}
         ${docRow('linkedin', docs.linkedin)}
+        ${(docs.cv || docs.linkedin) && html`
+          <div class="stack">
+            ${docs.cv && html`<a class="btn block" href="#/profile/import/cv">${icon('pencil')} Fill in my profile from my CV</a>`}
+            ${docs.linkedin && html`<a class="btn block" href="#/profile/import/linkedin">${icon('pencil')} Fill in from my LinkedIn PDF</a>`}
+          </div>`}
         ${docs.cv && html`
           <a class="summary-link cv-check-link" href="#/cv-check">
             <span class="cv-check-text">
@@ -66,7 +72,7 @@ export async function renderProfile(ctx, scrollY = 0) {
             </span>
             <span class="summary-cta">${cvCheck ? 'Open' : 'Check'} ${icon('chevron')}</span>
           </a>`}
-        <p class="hint">Your files stay on this device. The CV check also compares your CV with your LinkedIn PDF and this profile. Filling in your profile from your CV comes in a later version.</p>
+        <p class="hint">Your files stay on this device. Filling in your profile adds what’s missing and never overwrites what you’ve typed, and you check it all before it’s saved.</p>
         <details class="more">
           <summary>How to get your LinkedIn profile as a PDF</summary>
           <p>On a computer, open your LinkedIn profile, select <strong>More</strong> (or <strong>Resources</strong>), then <strong>Save to PDF</strong>.</p>
@@ -84,6 +90,12 @@ export async function renderProfile(ctx, scrollY = 0) {
 
       ${section('Education', profile.education.length > 0 && html`<ul class="entries">${profile.education.map(educationEntry)}</ul>`,
         'Degrees, diplomas and courses.')}
+
+      ${section('Projects', profile.projects.length > 0 && html`<ul class="entries">${profile.projects.map(projectEntry)}</ul>`,
+        'Things you’ve built or led, with a link if there is one.')}
+
+      ${section('Certifications', profile.certifications.length > 0 && html`<ul class="entries">${profile.certifications.map(certificationEntry)}</ul>`,
+        'Certificates and licences, like Google Data Analytics or a CPA.')}
 
       ${section('Skills', profile.skills.length > 0 && html`<ul class="skill-chips">${profile.skills.map((skill) => html`<li class="skill-chip">${skill}</li>`)}</ul>`,
         'Tools and strengths, like SQL, Excel or stakeholder management.')}
@@ -104,9 +116,13 @@ export async function renderProfile(ctx, scrollY = 0) {
     const file = input?.files?.[0];
     if (!file) return;
     input.value = '';
+    const kind = input.dataset.docInput;
     try {
-      await saveDocumentFile(input.dataset.docInput, file);
-      showToast(`${DOC_KINDS[input.dataset.docInput].label} saved`);
+      await saveDocumentFile(kind, file);
+      showToast(`${DOC_KINDS[kind].label} saved`, {
+        actionLabel: 'Fill in profile',
+        onAction: () => navigate(`/profile/import/${kind}`),
+      });
       await renderProfile(ctx, window.scrollY);
     } catch (error) {
       showToast(error.message);
@@ -163,6 +179,27 @@ function educationEntry(item) {
     <li class="entry">
       <p class="entry-title">${item.qualification || item.school}</p>
       ${item.qualification && sub && html`<p class="entry-sub">${sub}</p>`}
+    </li>`;
+}
+
+function projectEntry(item) {
+  const link = safeHttpUrl(item.link);
+  const dates = dateRange(item.start, item.end, false);
+  return html`
+    <li class="entry">
+      <p class="entry-title">${item.name}</p>
+      ${(dates || link) && html`<p class="entry-sub">${dates}${dates && link && ' · '}${link && html`<a class="ext-link" href="${link}" target="_blank" rel="noopener noreferrer">${hostOf(link)}${icon('external')}</a>`}</p>`}
+      ${item.description && html`<p class="entry-desc">${item.description}</p>`}
+    </li>`;
+}
+
+function certificationEntry(item) {
+  const link = safeHttpUrl(item.link);
+  const sub = [item.issuer, item.issued && formatMonth(item.issued)].filter(Boolean).join(' · ');
+  return html`
+    <li class="entry">
+      <p class="entry-title">${item.name}</p>
+      ${(sub || link) && html`<p class="entry-sub">${sub}${sub && link && ' · '}${link && html`<a class="ext-link" href="${link}" target="_blank" rel="noopener noreferrer">View credential${icon('external')}</a>`}</p>`}
     </li>`;
 }
 

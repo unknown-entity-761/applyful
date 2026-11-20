@@ -1,5 +1,9 @@
-// Edit profile: about you, summary, experience, education, skills and contact.
-// Experience and education are lists you can add to and remove from.
+// Edit profile: about you, summary, experience, education, projects, certifications,
+// skills and contact. The lists can be added to and removed from.
+//
+// The same screen is the review step after reading a CV or LinkedIn PDF
+// (views/profile-import.js): it opens with what was found already filled in and
+// highlighted, and nothing is saved until you tap Save.
 
 import { html, raw, icon, createScreen, mount, showToast } from '../ui.js';
 import {
@@ -9,21 +13,41 @@ import {
   validateProfile,
   blankJob,
   blankEducation,
+  blankProject,
+  blankCertification,
   MAX_NAME_LENGTH,
 } from '../profile.js';
 import { back } from '../router.js';
 import { field, setFieldError, linkHints } from './fields.js';
 
-export async function renderProfileEdit(ctx) {
-  const profile = await getProfile();
+const LISTS = {
+  experience: { blank: blankJob, fields: jobFields, add: 'Add a role' },
+  education: { blank: blankEducation, fields: educationFields, add: 'Add education' },
+  projects: { blank: blankProject, fields: projectFields, add: 'Add a project' },
+  certifications: { blank: blankCertification, fields: certificationFields, add: 'Add a certification' },
+};
+
+/**
+ * review (optional): { draft, filled, sourceLabel, fileName, found, ocr }
+ *   draft  the profile with what was read already merged in (not saved yet)
+ *   filled what came from the file: { fields: [...], skills: [...], items: Set of ids }
+ */
+export async function renderProfileEdit(ctx, review = null) {
+  const profile = review ? review.draft : await getProfile();
 
   const screen = createScreen(html`
     <header class="topbar">
       <button type="button" class="text-btn" data-action="cancel">Cancel</button>
-      <h1 class="topbar-title" tabindex="-1">Edit profile</h1>
+      <h1 class="topbar-title" tabindex="-1">${review ? 'Check your profile' : 'Edit profile'}</h1>
       <span aria-hidden="true"></span>
     </header>
     <main class="content">
+      ${review && html`
+        <div class="callout info" role="note">
+          <p class="callout-title">${icon('file')} Filled in from your ${review.sourceLabel}</p>
+          <p>${review.found}</p>
+          <p>Check the highlighted parts and fix anything that’s wrong. Nothing is saved until you tap <strong>Save profile</strong>.${review.ocr ? ' This CV was a scanned image, so look out for misread letters.' : ''}</p>
+        </div>`}
       <form class="form" novalidate>
         ${group('about', 'About you', html`
           <div class="two-col">
@@ -51,13 +75,9 @@ export async function renderProfileEdit(ctx) {
                    placeholder="Data analyst, Business analyst">`,
             { hint: 'Job titles you’re aiming for, separated by commas.' })}`)}
 
-        ${group('experience', 'Experience', html`
-          <div class="repeat-list" data-list="experience">${profile.experience.map(jobFields)}</div>
-          <button type="button" class="btn block" data-add="experience">${icon('plus')} Add a role</button>`)}
-
-        ${group('education', 'Education', html`
-          <div class="repeat-list" data-list="education">${profile.education.map(educationFields)}</div>
-          <button type="button" class="btn block" data-add="education">${icon('plus')} Add education</button>`)}
+        ${Object.entries(LISTS).map(([kind, list]) => group(kind, heading(kind), html`
+          <div class="repeat-list" data-list="${kind}">${profile[kind].map(list.fields)}</div>
+          <button type="button" class="btn block" data-add="${kind}">${icon('plus')} ${list.add}</button>`))}
 
         ${group('skills', 'Skills', html`
           ${field('skills', 'Skills', html`
@@ -84,8 +104,9 @@ export async function renderProfileEdit(ctx) {
   `);
 
   const form = screen.querySelector('form');
-  let dirty = false;
+  let dirty = Boolean(review);
   linkHints(form);
+  if (review) markFromFile(form, review);
 
   form.addEventListener('input', (event) => {
     dirty = true;
@@ -105,11 +126,10 @@ export async function renderProfileEdit(ctx) {
   form.addEventListener('click', (event) => {
     const addButton = event.target.closest('[data-add]');
     if (addButton) {
-      const kind = addButton.dataset.add;
-      const list = form.querySelector(`[data-list="${kind}"]`);
-      const markup = kind === 'experience' ? jobFields(blankJob()) : educationFields(blankEducation());
-      list.insertAdjacentHTML('beforeend', String(markup));
-      list.lastElementChild.querySelector('input')?.focus();
+      const list = LISTS[addButton.dataset.add];
+      const listEl = form.querySelector(`[data-list="${addButton.dataset.add}"]`);
+      listEl.insertAdjacentHTML('beforeend', String(list.fields(list.blank())));
+      listEl.lastElementChild.querySelector('input')?.focus();
       dirty = true;
       return;
     }
@@ -124,7 +144,8 @@ export async function renderProfileEdit(ctx) {
   });
 
   screen.querySelector('[data-action="cancel"]').addEventListener('click', () => {
-    if (dirty && !window.confirm('Discard your changes?')) return;
+    const question = review ? 'Discard what was read from your file? Your profile stays as it was.' : 'Discard your changes?';
+    if (dirty && !window.confirm(question)) return;
     back('/profile');
   });
 
@@ -133,8 +154,7 @@ export async function renderProfileEdit(ctx) {
     const draft = normalizeProfile({
       ...profile,
       ...Object.fromEntries(new FormData(form)),
-      experience: readItems(form, 'experience'),
-      education: readItems(form, 'education'),
+      ...Object.fromEntries(Object.keys(LISTS).map((kind) => [kind, readItems(form, kind)])),
     });
     const errors = validateProfile(draft);
 
@@ -159,6 +179,37 @@ export async function renderProfileEdit(ctx) {
   mount(screen, ctx);
 }
 
+function heading(kind) {
+  return { experience: 'Experience', education: 'Education', projects: 'Projects', certifications: 'Certifications' }[kind];
+}
+
+/** Highlights everything that came from the CV or LinkedIn file. */
+function markFromFile(form, review) {
+  const tag = () => {
+    const span = document.createElement('span');
+    span.className = 'from-tag';
+    span.textContent = `From your ${review.sourceLabel}`;
+    return span;
+  };
+  for (const key of review.filled.fields) {
+    const fieldEl = form.querySelector(`.field[data-field="${key}"]`);
+    if (!fieldEl) continue;
+    fieldEl.classList.add('from-file');
+    fieldEl.querySelector('label')?.append(' ', tag());
+  }
+  if (review.filled.skills.length) {
+    const fieldEl = form.querySelector('.field[data-field="skills"]');
+    fieldEl.classList.add('from-file');
+    fieldEl.querySelector('label')?.append(' ', tag());
+  }
+  for (const id of review.filled.items) {
+    const item = form.querySelector(`.repeat-item[data-id="${CSS.escape(id)}"]`);
+    if (!item) continue;
+    item.classList.add('from-file');
+    item.querySelector('.repeat-title')?.append(' ', tag());
+  }
+}
+
 function group(id, title, body) {
   return html`
     <div class="form-section" role="group" aria-labelledby="sec-${id}">
@@ -167,7 +218,7 @@ function group(id, title, body) {
     </div>`;
 }
 
-/** Reads every entry in an experience or education list from its inputs. */
+/** Reads every entry in one of the lists from its inputs. */
 function readItems(form, kind) {
   return [...form.querySelectorAll(`[data-list="${kind}"] .repeat-item`)].map((item) => ({
     id: item.dataset.id,
@@ -193,14 +244,19 @@ function monthInput(prefix, key, value, disabled = false) {
   return html`<input id="${prefix}-${key}" data-key="${key}" type="month" value="${value}" placeholder="YYYY-MM" ${disabled && raw('disabled')}>`;
 }
 
+function itemHead(title) {
+  return html`
+    <div class="repeat-head">
+      <span class="repeat-title">${title}</span>
+      <button type="button" class="text-btn small danger-text" data-remove>Remove</button>
+    </div>`;
+}
+
 function jobFields(job) {
   const p = `exp-${job.id}`;
   return html`
     <div class="repeat-item" data-id="${job.id}">
-      <div class="repeat-head">
-        <span class="repeat-title">Role</span>
-        <button type="button" class="text-btn small danger-text" data-remove>Remove</button>
-      </div>
+      ${itemHead('Role')}
       ${subField(p, 'title', 'Job title', textInput(p, 'title', job.title, 'autocapitalize="words" maxlength="120"'))}
       ${subField(p, 'company', 'Company', textInput(p, 'company', job.company, 'autocapitalize="words" maxlength="120"'))}
       <div class="two-col">
@@ -211,7 +267,7 @@ function jobFields(job) {
         <input type="checkbox" data-key="current" ${job.current && raw('checked')}> I work here now
       </label>
       ${subField(p, 'description', 'What you did', html`
-        <textarea id="${p}-description" data-key="description" rows="3" maxlength="2000"
+        <textarea id="${p}-description" data-key="description" rows="4" maxlength="2000"
                   placeholder="Main responsibilities and results, with numbers if you can">${job.description}</textarea>`)}
     </div>`;
 }
@@ -220,15 +276,47 @@ function educationFields(item) {
   const p = `edu-${item.id}`;
   return html`
     <div class="repeat-item" data-id="${item.id}">
-      <div class="repeat-head">
-        <span class="repeat-title">Education</span>
-        <button type="button" class="text-btn small danger-text" data-remove>Remove</button>
-      </div>
+      ${itemHead('Education')}
       ${subField(p, 'qualification', 'Qualification', textInput(p, 'qualification', item.qualification, 'maxlength="120" placeholder="Bachelor of Commerce"'))}
       ${subField(p, 'school', 'School or university', textInput(p, 'school', item.school, 'autocapitalize="words" maxlength="120"'))}
       <div class="two-col">
         ${subField(p, 'start', 'Start', monthInput(p, 'start', item.start))}
         ${subField(p, 'end', 'End', monthInput(p, 'end', item.end))}
       </div>
+    </div>`;
+}
+
+function projectFields(item) {
+  const p = `prj-${item.id}`;
+  return html`
+    <div class="repeat-item" data-id="${item.id}">
+      ${itemHead('Project')}
+      ${subField(p, 'name', 'Project name', textInput(p, 'name', item.name, 'maxlength="120" placeholder="Sales dashboard"'))}
+      ${subField(p, 'link', 'Link (optional)', html`
+        <input id="${p}-link" data-key="link" type="url" value="${item.link}" inputmode="url" autocapitalize="off"
+               spellcheck="false" maxlength="300" placeholder="https://github.com/you/project">`)}
+      <div class="two-col">
+        ${subField(p, 'start', 'Start', monthInput(p, 'start', item.start))}
+        ${subField(p, 'end', 'End', monthInput(p, 'end', item.end))}
+      </div>
+      ${subField(p, 'description', 'What it was and what you did', html`
+        <textarea id="${p}-description" data-key="description" rows="3" maxlength="2000"
+                  placeholder="The problem, what you built, and the result">${item.description}</textarea>`)}
+    </div>`;
+}
+
+function certificationFields(item) {
+  const p = `crt-${item.id}`;
+  return html`
+    <div class="repeat-item" data-id="${item.id}">
+      ${itemHead('Certification')}
+      ${subField(p, 'name', 'Certification', textInput(p, 'name', item.name, 'maxlength="160" placeholder="Google Data Analytics Certificate"'))}
+      <div class="two-col">
+        ${subField(p, 'issuer', 'Issued by', textInput(p, 'issuer', item.issuer, 'autocapitalize="words" maxlength="120" placeholder="Coursera"'))}
+        ${subField(p, 'issued', 'Issued', monthInput(p, 'issued', item.issued))}
+      </div>
+      ${subField(p, 'link', 'Credential link (optional)', html`
+        <input id="${p}-link" data-key="link" type="url" value="${item.link}" inputmode="url" autocapitalize="off"
+               spellcheck="false" maxlength="300">`)}
     </div>`;
 }

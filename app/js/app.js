@@ -11,6 +11,7 @@ import { renderActivity } from './views/activity.js';
 import { renderProfile } from './views/profile.js';
 import { renderProfileEdit } from './views/profile-edit.js';
 import { renderCvCheck } from './views/cv-check.js';
+import { renderProfileImport } from './views/profile-import.js';
 import { renderForm } from './views/form.js';
 import { renderDetail } from './views/detail.js';
 import { renderSettings } from './views/settings.js';
@@ -39,6 +40,7 @@ async function boot() {
   route('/a/:id', (params, ctx) => renderDetail(params, ctx));
   route('/a/:id/edit', (params, ctx) => renderForm(params, ctx));
   route('/profile/edit', (_, ctx) => renderProfileEdit(ctx));
+  route('/profile/import/:source', (params, ctx) => renderProfileImport(params, ctx));
   route('/cv-check', (_, ctx) => renderCvCheck(ctx));
   // Settings (the ☰ button on Profile)
   route('/settings', (_, ctx) => renderSettings(ctx));

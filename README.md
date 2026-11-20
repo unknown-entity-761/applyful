@@ -30,7 +30,9 @@ Then open http://localhost:5173/ in a browser. To see it at phone size in Chrome
 - **Home** is just a welcome by first name, the counts (tap one to see those applications) and follow-ups due.
 - **Jobs** tab: search, status filters, and sorting by date applied (newest or oldest), company (A to Z or Z to A), job title, status, follow-up date, or recently updated. The sort choice is remembered.
 - **Activity** tab: every status change across all applications, in a dropdown for each day with its number of changes.
-- **Profile** tab: your profile (name, headline, location, summary, roles you want, experience, education, skills, contact), a profile strength meter, and your CV and LinkedIn PDF stored on the device. Reading those files into the profile automatically comes with the version 2 AI service.
+- **Profile** tab: your profile (name, headline, location, summary, roles you want, experience, education, projects, certifications, skills, contact), a profile strength meter, and your CV and LinkedIn PDF stored on the device.
+- **Fill in my profile from my CV / LinkedIn PDF**: reads the file on the device with plain rules, no AI, the way Workday pre-fills its forms. It finds the name, contact details, location, summary, jobs (title, company, dates, points), education, projects, certifications and skills, then opens the edit form with everything found highlighted. Nothing is saved until you tap Save, and it only adds what's missing, so your own edits always win. LinkedIn's "Save to PDF" export has its own reader, which understands its fixed layout, including several roles at one company.
+- **OCR for scanned CVs**: if a PDF is a picture of text, the app offers to read it with Tesseract OCR, on the device. The OCR engine (about 7 MB) is only downloaded the first time someone uses it.
 - **Settings** (☰ on Profile): Appearance (Match phone, Light, Dark), add to home screen, notification settings (shown, switched on in version 2), **Help improve the app** (opt-in usage data, off by default; `app/js/analytics.js`, nothing is sent until version 2 connects an analytics service), backup/restore/storage/delete, and draft privacy policy, data disclosure, product disclosure statement, terms of use and help. The legal drafts are in `app/js/content/legal.js`; fill in the [square brackets] and get them reviewed before launch.
 
 Still to come in version 2 (see the PRD): email import, reminders, contacts from email, cover letters and job match. Those need an online service.
@@ -46,7 +48,7 @@ Open it from **Profile → CV and LinkedIn → Check your CV**. It reads your CV
 
 The rest of the PRD's version 3 needs the AI service: rewrites you can accept into your profile, a full spelling and grammar check, and checking against a job.
 
-The PDF reader is [pdf.js](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2.0), copied into `app/vendor/pdfjs` so it works offline. To update it: `npm.cmd install pdfjs-dist@<version> --save-dev --save-exact`, then `npm.cmd run vendor`, then bump `CACHE` in `app/sw.js`.
+The PDF reader is [pdf.js](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2.0), copied into `app/vendor/pdfjs` so it works offline. The OCR engine is [Tesseract.js](https://github.com/naptha/tesseract.js) (Apache-2.0) with the compact English model, in `app/vendor/tesseract`; it isn't in the offline file list, so it's only downloaded when needed. To update either: `npm.cmd install <package>@<version> --save-dev --save-exact`, then `npm.cmd run vendor`, then bump `CACHE` in `app/sw.js`.
 
 ## How it's built
 
@@ -92,8 +94,13 @@ flowchart LR
 | `app/js/cv/extract.js` | Reads a CV's text and layout: PDFs with pdf.js, Word .docx files from their XML |
 | `app/js/cv/zip.js` | Unzips Word files (a .docx is a zip), using the browser's built-in decompression |
 | `app/js/cv/rules.js` | The CV check's 13 rules and the score. No screen code, so they can be tested on their own |
+| `app/js/cv/text.js` | Shared CV text rules: dates, contact details, section headings |
+| `app/js/cv/parse.js` | Reads a CV or LinkedIn PDF into profile fields, with plain rules (no AI) |
+| `app/js/cv/ocr.js` | Reads scanned PDFs with Tesseract OCR, loaded only when needed |
 | `app/js/views/cv-check.js` | The CV check screen |
-| `app/vendor/pdfjs/` | pdf.js, the PDF reader (copied from npm by `tools/vendor-pdfjs.ps1`) |
+| `app/js/views/profile-import.js` | "Fill in my profile from my CV": reading, the OCR offer, then the review |
+| `app/vendor/pdfjs/` | pdf.js, the PDF reader (copied from npm by `tools/vendor.ps1`) |
+| `app/vendor/tesseract/` | Tesseract OCR and its English model (copied from npm by `tools/vendor.ps1`) |
 | `package.json` | Only used to fetch pdf.js with npm; the app itself has no build step |
 | `app/js/views/fields.js` | Labelled form fields and error messages shared by the forms |
 | `app/css/styles.css` | All styles; colors are variables, so dark mode is one block |
@@ -101,7 +108,7 @@ flowchart LR
 | `app/manifest.webmanifest` | Name, icons and colors used when installed |
 | `tools/serve.ps1` | Local web server for trying the app on this computer |
 | `tools/make-icons.ps1` | Redraws the PNG icons |
-| `tools/vendor-pdfjs.ps1` | Copies pdf.js from `node_modules` into `app/vendor/pdfjs` |
+| `tools/vendor.ps1` | Copies pdf.js and Tesseract from `node_modules` into `app/vendor` (`npm.cmd run vendor`) |
 
 ### Design decisions
 

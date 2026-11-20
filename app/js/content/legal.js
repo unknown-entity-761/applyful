@@ -32,7 +32,7 @@ export const LEGAL_PAGES = {
         heading: 'What stays on your device',
         list: [
           'Your applications: company, job title, portal, the email you used to sign up, links, dates, notes and status history.',
-          'Your profile: name, headline, location, contact details, summary, experience, education and skills.',
+          'Your profile: name, headline, location, contact details, summary, experience, education, projects, certifications and skills.',
           'Your CV and LinkedIn files, if you add them.',
           'CV check results: your score, the suggestions, the lines they quote from your CV, and the ones you chose to ignore.',
           'Preferences, such as light or dark mode and how lists are sorted.',
@@ -40,10 +40,11 @@ export const LEGAL_PAGES = {
         after: ['All of this is kept in your browser’s storage on this device. We can’t see it, and it isn’t part of the usage data below.'],
       },
       {
-        heading: 'The CV check',
+        heading: 'Reading your CV',
         paragraphs: [
-          'The CV check reads your CV on your device, using a PDF reader that’s built into the app. Your CV isn’t uploaded or sent to us, and the results stay on this device. If you’ve added your LinkedIn PDF, the check compares the two on your device too.',
-          'If you’ve switched on Help improve the app, we only learn that a check was run. We never learn what your CV says or what it scored.',
+          'The CV check and “Fill in my profile from my CV” read your CV and LinkedIn PDF on your device, using readers that are part of the app. Your files aren’t uploaded or sent to us, and the results stay on this device.',
+          'If your CV is a scanned image, the app can read it with OCR (text recognition), also on your device. The first time, it downloads the OCR engine (about 7 MB) from the same place as the app. Nothing about your CV is sent.',
+          'If you’ve switched on Help improve the app, we only learn that one of these features was used. We never learn what your CV says, what it scored, or what was filled in.',
         ],
       },
       {
@@ -144,7 +145,7 @@ export const LEGAL_PAGES = {
           columns: ['Data', 'What it includes', 'Kept', 'Shared with'],
           rows: [
             ['Applications', 'Company, job title, portal, login email, links, dates, notes, status history', 'This device', 'No one'],
-            ['Profile', 'Name, headline, location, contact details, summary, experience, education, skills', 'This device', 'No one'],
+            ['Profile', 'Name, headline, location, contact details, summary, experience, education, projects, certifications, skills', 'This device', 'No one'],
             ['CV and LinkedIn files', 'The files you add', 'This device', 'No one'],
             ['CV check results', 'Your score, the suggestions and the lines they quote from your CV, and which suggestions you ignored', 'This device', 'No one'],
             ['Preferences', 'Light or dark mode, sort order, dismissed prompts', 'This device', 'No one'],
@@ -286,6 +287,13 @@ export const LEGAL_PAGES = {
         heading: 'Follow-ups',
         paragraphs: [
           'Give an application a follow-up date. When it’s due, it shows on Home. Open the application to mark it Done or snooze it for a week.',
+        ],
+      },
+      {
+        heading: 'Filling in your profile from your CV',
+        paragraphs: [
+          'Go to Profile, add your CV or LinkedIn PDF, then tap Fill in my profile from my CV (or from my LinkedIn PDF). The app picks out your details, jobs, education, projects, certifications and skills, and shows them highlighted so you can check them. Nothing is saved until you tap Save profile.',
+          'It only adds what’s missing: anything you’ve already typed stays as it is. If your CV is a scanned image, the app offers to read it with OCR, which takes about half a minute.',
         ],
       },
       {

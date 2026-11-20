@@ -21,6 +21,8 @@ $types = @{
     '.ico'         = 'image/x-icon'
     '.txt'         = 'text/plain; charset=utf-8'
     '.pdf'         = 'application/pdf'
+    '.gz'          = 'application/gzip'
+    '.wasm'        = 'application/wasm'
     '.docx'        = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 }
 
