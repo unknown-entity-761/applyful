@@ -1,0 +1,14 @@
+{
+  "name": "job-application-tracker",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phone-first job application tracker. The app itself is plain files in app/; npm is only used to fetch the PDF reader (pdf.js) that the CV check uses.",
+  "scripts": {
+    "vendor": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/vendor-pdfjs.ps1",
+    "serve": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/serve.ps1"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "6.5.438"
+  }
+}

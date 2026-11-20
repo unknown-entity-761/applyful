@@ -1,0 +1,37 @@
+# Publishes the app/ folder to GitHub Pages every time changes reach the main branch.
+#
+# One-time setup on GitHub: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# The app then lives at https://<your-username>.github.io/<repository-name>/
+# You can also run it by hand from the repository's Actions tab ("Run workflow").
+
+name: Publish to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one publish at a time; a newer push waits for the one in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,6 @@
+# Downloaded by npm; the parts the app needs are copied into app/vendor.
+node_modules/
+
+# Windows clutter
+Thumbs.db
+desktop.ini
