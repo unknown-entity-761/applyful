@@ -65,6 +65,16 @@ drop trigger if exists profiles_touch on public.profiles;
 create trigger profiles_touch before insert or update on public.profiles
   for each row execute function public.touch_synced_at();
 
+-- ---- Access for signed-in people ----
+-- New Supabase projects don't open new tables to anyone automatically. Signed-in
+-- people get these rights, and row level security (below) then limits them to their
+-- own rows. Signed-out visitors get nothing.
+
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.applications to authenticated;
+grant select, insert, update, delete on public.profiles to authenticated;
+grant select, insert on public.consents to authenticated;
+
 -- ---- Row level security: only your own rows ----
 
 alter table public.applications enable row level security;

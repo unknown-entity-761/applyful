@@ -1223,3 +1223,8 @@ details.more p { margin-top: 6px; font-size: 14px; color: var(--text-2); }
   .btn:active, .tab:active .icon { transform: none; }
   .spinner { animation-duration: 2.4s; }
 }
+
+/* ---- Account forms: the agreement checkboxes wrap under their box ---- */
+.check.consent { align-items: flex-start; font-weight: 500; line-height: 1.4; }
+.check.consent input { flex: none; margin-top: 1px; }
+.form-error { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }

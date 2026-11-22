@@ -111,6 +111,14 @@ export const LEGAL_PAGES = {
         ],
       },
       {
+        heading: 'If you create an account',
+        paragraphs: [
+          'An account is optional. If you create one, your email address, a securely scrambled copy of your password (never the password itself), when you signed up, and what you agreed to (age, terms and privacy policy, and whether you want emails about Foliofy) are stored by Supabase, our account service, on servers in Sydney, Australia. [Link to Supabase’s privacy policy.]',
+          'Keeping your applications and profile in your account, so they appear on all your devices, is being built next. Until it’s switched on, they stay on each device. This policy will say more before it is.',
+          'You can sign out at any time in Settings, Account. To delete your account, contact us at [contact email] until deleting it in the app is added.',
+        ],
+      },
+      {
         heading: 'Your rights',
         paragraphs: [
           'Depending on where you live, you may have the right to access, correct or delete personal information we hold about you, and to complain to your local privacy regulator. Contact us at [contact email] to make a request.',
@@ -124,7 +132,7 @@ export const LEGAL_PAGES = {
       },
       {
         heading: 'Children',
-        paragraphs: ['The app isn’t intended for children under 16.'],
+        paragraphs: ['The app isn’t intended for children under 16. Creating an account asks you to confirm you’re 16 or older.'],
       },
       {
         heading: 'Changes to this policy',
@@ -150,6 +158,7 @@ export const LEGAL_PAGES = {
             ['CV check results', 'Your score, the suggestions and the lines they quote from your CV, and which suggestions you ignored', 'This device', 'No one'],
             ['Preferences', 'Light or dark mode, sort order, dismissed prompts', 'This device', 'No one'],
             ['Backups', 'A copy of your applications, profile, CV and LinkedIn files', 'Wherever you save the file', 'Anyone you give the file to'],
+            ['Account (only if you create one)', 'Email address, a scrambled copy of your password, sign-up date, what you agreed to', 'Supabase, in Sydney', 'Supabase, which runs it for us'],
             ['Usage data (only if you switch it on)', 'Features used, errors, device and browser type, app version, approximate region, a random device ID', '[Analytics provider], for [14 months]', 'Us, and [analytics provider] on our behalf'],
           ],
         },

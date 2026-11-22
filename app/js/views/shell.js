@@ -28,7 +28,7 @@ export function sectionOf(path) {
   if (path === '/new') return 'add';
   if (path === '/activity') return 'activity';
   if (path.startsWith('/profile') || path === '/cv-check') return 'profile';
-  if (path.startsWith('/settings') || path.startsWith('/legal/')) return 'settings';
+  if (path.startsWith('/settings') || path.startsWith('/legal/') || path.startsWith('/account')) return 'settings';
   return 'home';
 }
 

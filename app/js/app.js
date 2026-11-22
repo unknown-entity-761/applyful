@@ -21,6 +21,8 @@ import { renderNotifications, renderData, renderInstall } from './views/settings
 import { renderLegal } from './views/legal.js';
 import { renderWelcome } from './views/welcome.js';
 import { needsSetup } from './profile.js';
+import { handleAuthRedirect, currentUser } from './auth.js';
+import { renderAccount, renderSignUp, renderLogIn, renderReset, renderNewPassword } from './views/account.js';
 import './install.js';
 
 async function boot() {
@@ -54,17 +56,38 @@ async function boot() {
   route('/settings/data', (_, ctx) => renderData(ctx));
   route('/settings/install', (_, ctx) => renderInstall(ctx));
   route('/legal/:page', (params, ctx) => renderLegal(params, ctx));
+  // Account (optional sign-in)
+  route('/account', (_, ctx) => renderAccount(ctx));
+  route('/account/sign-up', (_, ctx) => renderSignUp(ctx));
+  route('/account/log-in', (_, ctx) => renderLogIn(ctx));
+  route('/account/reset', (_, ctx) => renderReset(ctx));
+  route('/account/new-password', (_, ctx) => renderNewPassword(ctx));
   // First-time setup
   route('/welcome', (_, ctx) => renderWelcome(ctx));
   route('/welcome/cv', (_, ctx) => renderProfileImport({ source: 'cv' }, ctx, { setup: true }));
   route('/welcome/form', (_, ctx) => renderProfileEdit(ctx, null, { setup: true }));
+
+  // An email link (confirming an address, or resetting a password) opens the app with
+  // sign-in details in the address: take them, then show the right screen.
+  const fromEmail = await handleAuthRedirect();
+  if (fromEmail) history.replaceState(null, '', fromEmail.error ? '#/account' : afterEmailLink(fromEmail));
 
   // The first time the app opens on a device with nothing saved, start with setup.
   const opening = location.hash.replace(/^#/, '') || '/';
   if (opening === '/' && (await needsSetup((await store.listApplications()).length))) {
     history.replaceState(null, '', '#/welcome');
   }
-  start(() => navigate('/', { replace: true }));
+  start(async () => {
+    // An email link opened in a tab where the app was already running.
+    const fromLink = await handleAuthRedirect();
+    if (fromLink) {
+      navigate(fromLink.error ? '/account' : afterEmailLink(fromLink).slice(1), { replace: true });
+      reportEmailLink(fromLink);
+      return;
+    }
+    navigate('/', { replace: true });
+  });
+  if (fromEmail) reportEmailLink(fromEmail);
 
   registerServiceWorker();
 }
@@ -72,6 +95,14 @@ async function boot() {
 // Phones keep apps open in the background for days, so the app also looks for a
 // new version whenever it comes back on screen, at most this often.
 const UPDATE_CHECK_MS = 15 * 60 * 1000;
+
+const afterEmailLink = (result) => (result.type === 'recovery' ? '#/account/new-password' : '#/account');
+
+function reportEmailLink(result) {
+  if (result.error) showToast(result.error, { duration: 8000 });
+  else if (result.type === 'recovery') showToast('Choose a new password');
+  else showToast(`Email confirmed. You’re signed in as ${currentUser()?.email ?? 'your account'}.`, { duration: 6000 });
+}
 
 function registerServiceWorker() {
   // Service workers only run on https pages (and localhost while developing).
