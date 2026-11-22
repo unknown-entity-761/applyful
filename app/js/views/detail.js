@@ -22,6 +22,7 @@ import { findCv, openFile } from '../profile.js';
 import { gmailLink, gmailAddress } from '../email/gmail.js';
 import { listLetters, lettersFor } from '../letters.js';
 import { lettersPanel } from './letters.js';
+import { nudgesFor, markGhosted, keepWaiting, weeksText } from './nudges.js';
 import { STATUSES, statusInfo, withStatus, isOpen, isFollowUpDue, followUpText } from '../model.js';
 import { back, refresh } from '../router.js';
 import { googleCalendarUrl, openCalendarFile } from '../calendar.js';
@@ -39,6 +40,7 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
   const timeline = [...app.statusHistory].reverse();
   const cvSent = await findCv(app.cvVersionId);
   const letters = lettersFor(app.id, await listLetters());
+  const nudge = nudgesFor([app]).length > 0;
 
   const screen = createScreen(html`
     <header class="topbar">
@@ -58,6 +60,16 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
           <div class="callout-actions">
             <button type="button" class="btn small" data-action="followup-done">${icon('check')} Done</button>
             <button type="button" class="btn small" data-action="followup-snooze">Snooze 1 week</button>
+          </div>
+        </div>`}
+
+      ${nudge && html`
+        <div class="callout" role="note">
+          <p class="callout-title">${icon('clock')} ${weeksText(app)}</p>
+          <p>Still no word from ${app.company}? You can mark it as Ghosted, and change it back any time.</p>
+          <div class="callout-actions">
+            <button type="button" class="btn small" data-action="mark-ghosted">Mark as Ghosted</button>
+            <button type="button" class="btn small" data-action="still-waiting">Still waiting</button>
           </div>
         </div>`}
 
@@ -163,6 +175,13 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
         break;
       case 'copy-email':
         await copyText(app.loginEmail);
+        break;
+      case 'mark-ghosted':
+        await markGhosted(app, () => renderDetail({ id: app.id }, { active: true }, window.scrollY));
+        break;
+      case 'still-waiting':
+        keepWaiting(app);
+        renderDetail({ id: app.id }, { active: true }, window.scrollY);
         break;
       case 'open-cv':
         openFile(cvSent);

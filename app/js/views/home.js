@@ -12,6 +12,7 @@ import { exportBackup, backupReminderDue, backupReminderSettings, snoozeBackupRe
 import { isInstalled, canPromptInstall, promptInstall } from '../install.js';
 import { getPref, setPref } from '../prefs.js';
 import { currentUser, dataHome } from '../auth.js';
+import { nudgesFor, nudgeCard, markGhosted, keepWaiting } from './nudges.js';
 
 const INSTALL_CARD_KEY = 'jt-install-card-dismissed';
 const isPhone = () => window.matchMedia('(pointer: coarse)').matches;
@@ -32,6 +33,7 @@ export async function renderHome(ctx) {
   const next = apps
     .filter((app) => isOpen(app) && app.followUpOn > today)
     .sort((a, b) => a.followUpOn.localeCompare(b.followUpOn))[0];
+  const quiet = nudgesFor(apps);
 
   // The name comes from your profile, so once it's saved (here or on the Profile tab)
   // every visit opens with "Welcome back, <name>". In version 2, signing in fills it in.
@@ -96,12 +98,30 @@ export async function renderHome(ctx) {
                   ? `Next follow-up: ${next.company}, ${formatDate(next.followUpOn)}.`
                   : 'Give an application a follow-up date and it shows up here when it’s due.'}</p>
               </div>`}
-        </section>`}
+        </section>
+
+        ${quiet.length > 0 && html`
+          <section class="group" aria-labelledby="nudge-heading">
+            <h2 class="group-title" id="nudge-heading">${icon('bell')} No reply yet (${quiet.length})</h2>
+            <ul class="nudge-list">${quiet.map(nudgeCard)}</ul>
+          </section>`}`}
     </main>
     ${tabBar('home')}
   `);
 
   screen.addEventListener('click', (event) => {
+    const nudge = event.target.closest('[data-nudge]');
+    if (nudge) {
+      const app = apps.find((a) => a.id === nudge.closest('[data-nudge-id]').dataset.nudgeId);
+      if (!app) return;
+      if (nudge.dataset.nudge === 'ghost') markGhosted(app, () => renderHome({ active: true }));
+      else {
+        keepWaiting(app);
+        showToast('Okay. It’s hidden until its status changes.');
+        renderHome({ active: true });
+      }
+      return;
+    }
     const tile = event.target.closest('[data-filter]');
     if (tile) {
       openApplications({ filter: tile.dataset.filter });

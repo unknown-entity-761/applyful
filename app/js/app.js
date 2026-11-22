@@ -22,6 +22,9 @@ import { renderNotifications, renderData, renderInstall } from './views/settings
 import { renderLegal } from './views/legal.js';
 import { renderEmailSettings } from './views/email.js';
 import { renderLetters, renderLetterEditor } from './views/letters.js';
+import { markGhosted } from './views/nudges.js';
+import { getApplication } from './store.js';
+import './push.js'; // so signing out also turns off this device's notifications
 import { renderWelcome } from './views/welcome.js';
 import { needsSetup } from './profile.js';
 import { handleAuthRedirect, currentUser } from './auth.js';
@@ -57,6 +60,11 @@ async function boot() {
   route('/new', (_, ctx) => renderForm({}, ctx));
   route('/a/:id', (params, ctx) => renderDetail(params, ctx));
   route('/a/:id/edit', (params, ctx) => renderForm(params, ctx));
+  route('/a/:id/ghosted', async (params, ctx) => {
+    const app = await getApplication(params.id);
+    if (app && app.status !== 'ghosted') await markGhosted(app);
+    navigate(`/a/${encodeURIComponent(params.id)}`, { replace: true });
+  });
   route('/profile/edit', (_, ctx) => renderProfileEdit(ctx));
   route('/profile/import/:source', (params, ctx) => renderProfileImport(params, ctx));
   route('/cv-check', (_, ctx) => renderCvCheck(ctx));
@@ -141,6 +149,12 @@ function reportEmailLink(result) {
 function registerServiceWorker() {
   // Service workers only run on https pages (and localhost while developing).
   if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
+
+  // A notification was tapped while the app was open: go to the screen it's about.
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    const screen = event.data?.type === 'open' ? String(event.data.screen ?? '') : '';
+    if (screen.startsWith('#/')) navigate(screen.slice(1));
+  });
 
   // The first install on this device isn't an update; only later versions are.
   let hasVersion = Boolean(navigator.serviceWorker.controller);

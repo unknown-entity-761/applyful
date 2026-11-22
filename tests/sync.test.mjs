@@ -437,8 +437,9 @@ test('a different CV in the account is kept in the CV history when this deviceâ€
   await saveDocumentFile('cv', cvFile('in-account.pdf', 1));
   await syncNow({ confirmMove: () => true });
 
-  // Another device, which added its own CV before signing in.
+  // Another device, which added its own CV before signing in (a moment later).
   await newDevice();
+  await new Promise((resolve) => setTimeout(resolve, 5));
   await saveDocumentFile('cv', cvFile('this-device.pdf', 2));
   await syncNow({ confirmMove: () => true });
   assert.equal(server.documents.get('cv').name, 'this-device.pdf');

@@ -396,3 +396,79 @@ create policy "Own cover letters" on public.cover_letters
   for all to authenticated
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
+
+-- =====================================================================
+-- Added 23 Nov 2026 (version 4): notifications.
+-- Each device that turns notifications on saves its push address (from the browser's
+-- push service) and its reminder settings here. The send-reminders job reads them
+-- every 15 minutes and sends what's due. A push address belongs to whoever turned it
+-- on last on that device, so a shared browser never gets someone else's reminders.
+-- =====================================================================
+
+create table if not exists public.push_subscriptions (
+  endpoint text primary key check (char_length(endpoint) <= 1000),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  p256dh text not null check (char_length(p256dh) <= 200),
+  auth text not null check (char_length(auth) <= 100),
+  settings jsonb not null default '{}'::jsonb check (pg_column_size(settings) <= 2000),
+  time_zone text not null default 'UTC' check (char_length(time_zone) <= 64),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists push_subscriptions_user on public.push_subscriptions (user_id);
+
+alter table public.push_subscriptions enable row level security;
+grant select, delete on public.push_subscriptions to authenticated;
+
+drop policy if exists "Own push subscriptions" on public.push_subscriptions;
+create policy "Own push subscriptions" on public.push_subscriptions
+  for select to authenticated using (user_id = (select auth.uid()));
+
+drop policy if exists "Remove own push subscriptions" on public.push_subscriptions;
+create policy "Remove own push subscriptions" on public.push_subscriptions
+  for delete to authenticated using (user_id = (select auth.uid()));
+
+-- Saving goes through this function, so a device moves to whoever signed in last.
+create or replace function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text, p_settings jsonb, p_time_zone text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  insert into public.push_subscriptions (endpoint, user_id, p256dh, auth, settings, time_zone, updated_at)
+  values (p_endpoint, auth.uid(), p_p256dh, p_auth, coalesce(p_settings, '{}'::jsonb), coalesce(nullif(p_time_zone, ''), 'UTC'), now())
+  on conflict (endpoint) do update
+    set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth,
+        settings = excluded.settings, time_zone = excluded.time_zone, updated_at = now();
+end;
+$$;
+
+create or replace function public.remove_push_subscription(p_endpoint text)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  delete from public.push_subscriptions where endpoint = p_endpoint and user_id = auth.uid();
+$$;
+
+revoke all on function public.save_push_subscription(text, text, text, jsonb, text) from public, anon;
+grant execute on function public.save_push_subscription(text, text, text, jsonb, text) to authenticated;
+revoke all on function public.remove_push_subscription(text) from public, anon;
+grant execute on function public.remove_push_subscription(text) to authenticated;
+
+-- What's been sent to each device, so nothing is sent twice. Only the job uses it.
+create table if not exists public.notifications_sent (
+  endpoint text not null references public.push_subscriptions (endpoint) on delete cascade,
+  key text not null check (char_length(key) <= 200),
+  sent_at timestamptz not null default now(),
+  primary key (endpoint, key)
+);
+
+alter table public.notifications_sent enable row level security;
+-- No grants: only the send-reminders job (with the service role) reads and writes it.

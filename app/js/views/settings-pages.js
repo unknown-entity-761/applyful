@@ -8,55 +8,144 @@ import { getProfile, isProfileEmpty, getDocument, deleteProfileAndDocuments } fr
 import { currentUser, dataHome, deletionReach, onlineCopyChoice, setOnlineCopy, onlineUser } from '../auth.js';
 import { subHeader, wireBack } from './components.js';
 import { listLetters, deleteLetter } from '../letters.js';
+import { pushState, notificationSettings, enablePush, disablePush, saveNotificationSettings, sendTestNotification } from '../push.js';
+import { NUDGE_WEEK_CHOICES } from '../reminders.js';
 
 // ---- Notifications ----
 
-const NOTIFICATION_TYPES = [
-  { title: 'Follow-up reminders', desc: 'On the day a follow-up is due', on: true },
-  { title: 'No-reply nudges', desc: 'When an application hasn’t had a reply for 3 weeks', on: true },
-  { title: 'Email updates', desc: 'When an email changes an application’s status', on: false },
-];
+const PUSH_NOTES = {
+  'not-set-up': 'Notifications aren’t set up for this app yet.',
+  unsupported: 'This browser can’t show notifications from Foliofy. Try Chrome, Edge, Firefox or Safari.',
+  'needs-home-screen': 'On iPhone, notifications only work once Foliofy is on your Home Screen. Add it, then open Foliofy from there and come back here.',
+  'needs-data-online': 'Notifications are sent by Foliofy’s server at the time you choose, so it needs your applications online. Sign in, or keep a copy online (Settings, Backup, restore and storage).',
+  blocked: 'Notifications are blocked for Foliofy in this browser. Allow them in the browser’s site settings, then come back here.',
+};
 
 export async function renderNotifications(ctx) {
+  const state = pushState();
+  const settings = notificationSettings();
+  const on = state === 'on';
+  const canTurnOn = state === 'off';
+
   const screen = createScreen(html`
     ${subHeader('Notifications')}
     <main class="content">
-      <div class="callout info" role="note">
-        <p class="callout-title">${icon('info')} Coming in version 2</p>
-        <p>Phone notifications need the online service that version 2 adds. Until then, follow-ups that are due show on Home.</p>
-      </div>
+      ${PUSH_NOTES[state] && html`
+        <div class="callout info" role="note">
+          <p>${PUSH_NOTES[state]}</p>
+          ${state === 'needs-home-screen' && html`<div class="callout-actions"><a class="btn small" href="#/settings/install">Show me how</a></div>`}
+          ${state === 'needs-data-online' && html`<div class="callout-actions"><a class="btn small" href="#/account">Sign in</a><a class="btn small" href="#/settings/data">Keep a copy online</a></div>`}
+        </div>`}
 
-      <section class="panel" aria-label="Notification types">
-        ${NOTIFICATION_TYPES.map((type) => html`
-          <label class="switch-row">
-            <span class="switch-text">
-              <span class="switch-title">${type.title}</span>
-              <span class="switch-desc">${type.desc}</span>
-            </span>
-            <input type="checkbox" class="switch" role="switch" ${type.on && raw('checked')} disabled>
-          </label>`)}
+      <section class="panel" aria-label="Notifications on this device">
+        <label class="switch-row">
+          <span class="switch-text">
+            <span class="switch-title">Notifications on this device</span>
+            <span class="switch-desc">${on ? 'On. Reminders arrive at the time below.' : 'Reminders on this phone or computer, even when Foliofy is closed.'}</span>
+          </span>
+          <input type="checkbox" class="switch" role="switch" data-setting="push" ${on && raw('checked')} ${!on && !canTurnOn && raw('disabled')}>
+        </label>
+        ${on && html`<button type="button" class="btn block" data-action="test">${icon('bell')} Send a test notification</button>`}
+      </section>
+
+      <section class="panel" aria-label="What you’re reminded about">
+        <label class="switch-row">
+          <span class="switch-text">
+            <span class="switch-title">Follow-up reminders</span>
+            <span class="switch-desc">On the day a follow-up is due</span>
+          </span>
+          <input type="checkbox" class="switch" role="switch" name="followUps" ${settings.followUps && raw('checked')}>
+        </label>
+        <label class="switch-row">
+          <span class="switch-text">
+            <span class="switch-title">No-reply nudges</span>
+            <span class="switch-desc">When an application is still at Applied with no reply, with a one-tap option to mark it Ghosted. Also shown on Home.</span>
+          </span>
+          <input type="checkbox" class="switch" role="switch" name="nudges" ${settings.nudges && raw('checked')}>
+        </label>
+        <div class="time-row ${!settings.nudges && 'notify-off'}">
+          <label for="f-nudgeWeeks">Nudge after</label>
+          <select id="f-nudgeWeeks" name="nudgeWeeks" ${!settings.nudges && raw('disabled')}>
+            ${NUDGE_WEEK_CHOICES.map((weeks) => html`<option value="${weeks}" ${weeks === settings.nudgeWeeks && raw('selected')}>${weeks} weeks</option>`)}
+          </select>
+        </div>
+        <label class="switch-row">
+          <span class="switch-text">
+            <span class="switch-title">Email updates</span>
+            <span class="switch-desc">Not yet: email is checked when you tap Check Gmail on Activity.</span>
+          </span>
+          <input type="checkbox" class="switch" role="switch" disabled>
+        </label>
       </section>
 
       <section class="panel" aria-label="Timing">
-        <div class="switch-row">
-          <span class="switch-text">
-            <span class="switch-title">Reminder time</span>
-            <span class="switch-desc">When reminders arrive each day</span>
-          </span>
-          <span class="badge">9:00 am</span>
+        <div class="time-row">
+          <label for="f-time">Reminder time</label>
+          <input id="f-time" type="time" name="time" value="${settings.time}" step="900">
         </div>
-        <div class="switch-row">
-          <span class="switch-text">
-            <span class="switch-title">Quiet hours</span>
-            <span class="switch-desc">No notifications overnight</span>
-          </span>
-          <span class="badge">10 pm – 7 am</span>
+        <div class="time-row">
+          <label for="f-quietStart">Quiet hours from</label>
+          <input id="f-quietStart" type="time" name="quietStart" value="${settings.quietStart}" step="900">
         </div>
+        <div class="time-row">
+          <label for="f-quietEnd">until</label>
+          <input id="f-quietEnd" type="time" name="quietEnd" value="${settings.quietEnd}" step="900">
+        </div>
+        <p class="hint">No notifications during quiet hours. If your reminder time falls inside them, reminders come when quiet hours end. Times are your phone’s local time.</p>
       </section>
     </main>
   `);
 
   wireBack(screen, '/settings');
+
+  const read = () => ({
+    followUps: screen.querySelector('[name="followUps"]').checked,
+    nudges: screen.querySelector('[name="nudges"]').checked,
+    nudgeWeeks: Number(screen.querySelector('[name="nudgeWeeks"]').value),
+    time: screen.querySelector('[name="time"]').value,
+    quietStart: screen.querySelector('[name="quietStart"]').value,
+    quietEnd: screen.querySelector('[name="quietEnd"]').value,
+  });
+
+  screen.addEventListener('change', async (event) => {
+    const control = event.target;
+    if (control.dataset.setting === 'push') {
+      control.disabled = true;
+      try {
+        if (control.checked) {
+          await enablePush();
+          showToast('Notifications on');
+        } else {
+          await disablePush();
+          showToast('Notifications off on this device');
+        }
+      } catch (error) {
+        showToast(error.message, { duration: 6000 });
+      }
+      await renderNotifications({ active: true });
+      return;
+    }
+    if (!control.name) return;
+    try {
+      await saveNotificationSettings(read());
+      if (control.name === 'nudges') await renderNotifications({ active: true });
+    } catch (error) {
+      showToast(error.message, { duration: 6000 });
+    }
+  });
+
+  screen.querySelector('[data-action="test"]')?.addEventListener('click', async (event) => {
+    event.target.disabled = true;
+    try {
+      await sendTestNotification();
+      showToast('Sent. It should arrive in a few seconds.');
+    } catch (error) {
+      showToast(error.message, { duration: 6000 });
+    } finally {
+      event.target.disabled = false;
+    }
+  });
+
   mount(screen, ctx);
 }
 

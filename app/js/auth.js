@@ -152,6 +152,13 @@ function sessionChanged(from, to) {
   }
 }
 
+let beforeSignOut = async () => {};
+
+/** push.js removes this device's notifications before the session goes. */
+export function setBeforeSignOut(fn) {
+  beforeSignOut = fn;
+}
+
 let waitForSync = async () => {};
 
 /** sync.js says how to wait for a sync that's running, so a guest isn't deleted mid-upload. */
@@ -408,6 +415,7 @@ export async function setNewPassword(password) {
 }
 
 export async function signOut() {
+  await beforeSignOut().catch(() => {});
   const token = session?.accessToken;
   forget();
   // scope=local: only this device. Other devices you're signed in on stay signed in.

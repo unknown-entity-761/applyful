@@ -126,6 +126,13 @@ export const LEGAL_PAGES = {
         ],
       },
       {
+        heading: 'Notifications, if you turn them on',
+        paragraphs: [
+          'Notifications are optional (Settings → Notifications). If you turn them on, your browser gives Foliofy a push address from its push service: Google for Chrome and Android, Apple for Safari and iPhone, or Mozilla for Firefox. We keep that address, your reminder settings and your time zone on our server (Supabase, in Sydney), so a scheduled job can send reminders at the time you choose. To work out what’s due, it reads the follow-up dates and statuses of the applications in your account or online copy.',
+          'Each reminder (the company and job title) passes through your browser’s push service, encrypted so that only your device can read it. We keep a record of which reminders were sent for 60 days, so none is sent twice. Turning notifications off, or signing out on that device, removes its push address.',
+        ],
+      },
+      {
         heading: 'Gmail, if you connect it',
         paragraphs: [
           'Connecting Gmail is optional (Settings → Gmail). Google asks you to allow read-only access: Foliofy can’t send, delete or change your email.',
@@ -232,6 +239,7 @@ export const LEGAL_PAGES = {
             ['Cover letters', 'The letters you write or paste, their company and job title, and the applications they’re linked to', 'This device, plus your account or online copy', 'No one; Supabase stores it for us'],
             ['Preferences', 'Light or dark mode, sort order, dismissed prompts', 'This device', 'No one'],
             ['Backups', 'A copy of your applications, profile, CV and LinkedIn files', 'Wherever you save the file', 'Anyone you give the file to'],
+            ['Notifications (only if you turn them on)', 'Your browser’s push address, reminder time, quiet hours, time zone, and which reminders were sent', 'Supabase, in Sydney (sent-reminder records for 60 days)', 'Your browser’s push service delivers the reminders, encrypted'],
             ['From your email (only if you connect Gmail)', 'Read on your device. Saved on applications: company, job title, job number, portal, status, the email you applied with, a link to the email, and recruiter contact details', 'With your applications', 'No one; your emails never reach our server'],
             ['Online copy (only if you choose one, without an account)', 'The rows above, under a random ID instead of an account (no email address or password)', 'Supabase, in Sydney, until you turn it off or 12 months unused', 'Supabase, which runs it for us'],
             ['Account (only if you create one)', 'Email address, a scrambled copy of your password, sign-up date, what you agreed to', 'Supabase, in Sydney', 'Supabase, which runs it for us'],
@@ -375,6 +383,7 @@ export const LEGAL_PAGES = {
           'Checking your CV: a score, what to fix first and what’s already strong.',
           'A CV history: your earlier CVs are kept with their CV check score, and each application can say which CV you sent.',
           'Cover letters in one place (the Letters tab), each linked to the applications you sent it with, with a template to start from.',
+          'A nudge on Home when an application has had no reply for a few weeks, with one tap to mark it Ghosted.',
           'Adding a follow-up date to your calendar, with a reminder on the day.',
           'Backing up to a file (including your CV) and restoring it, on this phone or a new one.',
         ],
@@ -383,6 +392,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'Coming soon',
         list: [
+          'Notifications for follow-ups and no-reply nudges, at the time you choose. They’re built and being switched on; Settings → Notifications says when they’re ready.',
           'Adding and updating applications from your Gmail, with recruiter contacts. It’s built and being set up with Google; Settings → Gmail says when it’s ready.',
           'Changing the email you sign in with, and deleting your account from inside the app.',
         ],
@@ -391,7 +401,7 @@ export const LEGAL_PAGES = {
         heading: 'Later',
         list: [
           'Signing in with Google or Apple.',
-          'Phone notifications for follow-ups, and a nudge when a company hasn’t replied.',
+          'Reminders from the Android and iPhone apps that work with no signal.',
           'Apps for Android and iPhone.',
         ],
       },
@@ -452,6 +462,13 @@ export const LEGAL_PAGES = {
         paragraphs: [
           'Connect Gmail in Settings → Gmail, then tap Check Gmail now on Activity. A confirmation email adds the application; later emails move it on (assessment, interview, offer, rejection), never backwards. Recruiters who write are saved as contacts.',
           'Every change is listed on Activity with Undo. An email that could belong to more than one application, or to none, waits under Needs a look: link it, add it as a new application, or mark it as not a job email.',
+        ],
+      },
+      {
+        heading: 'Reminders and notifications',
+        paragraphs: [
+          'Home lists follow-ups that are due, and applications that have had no reply for a few weeks, with one tap to mark them Ghosted. Choose the number of weeks in Settings → Notifications.',
+          'Notifications bring the same reminders to your phone or computer at the time you choose, even when Foliofy is closed. They need an account or the online copy, because Foliofy’s server sends them. On iPhone, add Foliofy to your Home Screen first, then turn them on from there.',
         ],
       },
       {

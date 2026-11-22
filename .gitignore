@@ -9,3 +9,6 @@ desktop.ini
 /*.ics
 /*.json.download
 /job-tracker-backup-*.json
+
+# The private key for notifications: a Supabase secret, never committed
+supabase/.vapid-private-key.txt

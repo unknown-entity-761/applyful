@@ -6,7 +6,7 @@
 // GitHub also runs before every publish. Don't edit them by hand. The cache name
 // changes whenever a file changes, so phones pick up each new version.
 
-const CACHE = 'foliofy-4c2d3daea351';
+const CACHE = 'foliofy-225006093155';
 
 const APP_FILES = [
   './',
@@ -37,6 +37,8 @@ const APP_FILES = [
   './js/model.js',
   './js/prefs.js',
   './js/profile.js',
+  './js/push.js',
+  './js/reminders.js',
   './js/router.js',
   './js/store.js',
   './js/sync.js',
@@ -56,6 +58,7 @@ const APP_FILES = [
   './js/views/home.js',
   './js/views/legal.js',
   './js/views/letters.js',
+  './js/views/nudges.js',
   './js/views/profile-edit.js',
   './js/views/profile-import.js',
   './js/views/profile.js',
@@ -121,4 +124,42 @@ self.addEventListener('fetch', (event) => {
     Promise.race([network, slow.then((cached) => cached ?? network)])
       .catch(async () => (await savedCopy(request)) ?? Response.error()),
   );
+});
+
+// ---- Notifications (sent by supabase/functions/send-reminders) ----
+
+// Only app screens ('#/...') can be opened from a notification.
+const appScreen = (value) => (typeof value === 'string' && value.startsWith('#/') ? value : '#/');
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(self.registration.showNotification(data.title || 'Foliofy', {
+    body: data.body || '',
+    tag: data.tag || undefined,
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    actions: Array.isArray(data.actions) ? data.actions.slice(0, 2) : [],
+    data: { url: appScreen(data.url), ghostUrl: data.ghostUrl ? appScreen(data.ghostUrl) : '' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const { url, ghostUrl } = event.notification.data ?? {};
+  const screen = event.action === 'ghost' && ghostUrl ? ghostUrl : url || '#/';
+  const home = new URL('./', self.location.href).href;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const open = windows.find((client) => client.url.startsWith(home));
+    if (open) {
+      open.postMessage({ type: 'open', screen });
+      return open.focus();
+    }
+    return self.clients.openWindow(`${home}${screen}`);
+  })());
 });

@@ -14,3 +14,8 @@ export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_P_DWJ-9lxdTD1V1A1ZneJg_t
 // web application; it's public by design (no secret goes here). Empty = the Gmail
 // screens say it isn't set up yet. See README, "Email import".
 export const GOOGLE_CLIENT_ID = '';
+
+// Notifications (version 4, web push). The public half of the key the server signs
+// notifications with; it's public by design. The private half is a Supabase secret
+// (VAPID_PRIVATE_KEY) and never goes in the app. See README, "Notifications".
+export const VAPID_PUBLIC_KEY = 'BJKNNQqTFnGm3zlyH_qmifbyShp9stU_K4BxlykwXrfPHiv1izQ6Rr5PV1lGA1ZFYfsOnBHUCuaCNI2WpPPlenQ';
