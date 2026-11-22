@@ -282,6 +282,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'What works now',
         list: [
+          'A short setup the first time you open the app, to fill in your profile from your CV or by hand.',
           'Tracking applications: status, portal, the email you used, follow-up dates, notes and history.',
           'Filling in your profile from your CV or LinkedIn PDF, on this device and without AI. Scanned CVs are read with OCR.',
           'Checking your CV: a score, what to fix first and what’s already strong.',
@@ -292,12 +293,12 @@ export const LEGAL_PAGES = {
       },
       {
         heading: 'Coming soon',
-        list: ['A short setup the first time you open the app, to fill in your profile from your CV or by hand.'],
+        list: ['Signing in, so your applications are backed up online and show up on every device you use, phone or computer.'],
       },
       {
         heading: 'Later',
         list: [
-          'An account (email, Google or Apple), with your data on every device you use and backed up automatically.',
+          'Signing in with Google or Apple.',
           'Phone notifications for follow-ups, and a nudge when a company hasn’t replied.',
           'Locking the app with a PIN or Face ID.',
           'Apps for Android and iPhone.',

@@ -5,6 +5,9 @@
 // 3. Picks out the profile details with plain rules, no AI (cv/parse.js), adds them
 //    to what's already there without overwriting it (mergeIntoProfile), and opens the
 //    edit form as a review step. Nothing is saved until you tap Save.
+//
+// First-time setup uses the same steps (#/welcome/cv, setup: true). There, a file
+// that can't be read leads to filling the form in by hand instead.
 
 import { html, icon, createScreen, mount, plural } from '../ui.js';
 import { getProfile, getDocument, mergeIntoProfile } from '../profile.js';
@@ -12,7 +15,7 @@ import { extractCv, CvReadError, readErrorMessage, hasReadableText } from '../cv
 import { parseCv, parseLinkedIn, isLinkedInExport } from '../cv/parse.js';
 import { OCR_DOWNLOAD_MB, ocrPdf } from '../cv/ocr.js';
 import { track } from '../analytics.js';
-import { back } from '../router.js';
+import { back, navigate } from '../router.js';
 import { subHeader, wireBack } from './components.js';
 import { renderProfileEdit } from './profile-edit.js';
 
@@ -21,30 +24,32 @@ const SOURCES = {
   linkedin: { kind: 'linkedin', label: 'LinkedIn PDF' },
 };
 
-export async function renderProfileImport({ source }, ctx) {
+export async function renderProfileImport({ source }, ctx, { setup = false } = {}) {
   const from = SOURCES[source] ?? SOURCES.cv;
   const [profile, file] = await Promise.all([getProfile(), getDocument(from.kind)]);
+  const showMessage = (title, message) => messageScreen(ctx, title, message, setup);
   if (!file) {
-    showMessage(ctx, `No ${from.label} yet`, `Add your ${from.label} on the Profile tab first, then come back here.`);
+    if (setup) navigate('/welcome', { replace: true });
+    else showMessage(`No ${from.label} yet`, `Add your ${from.label} on the Profile tab first, then come back here.`);
     return;
   }
 
-  mount(progressScreen(`Reading ${file.name}…`), ctx);
+  mount(progressScreen(`Reading ${file.name}…`, false, setup), ctx);
   let doc;
   try {
     doc = await extractCv(file.data, { name: file.name });
   } catch (error) {
     if (!(error instanceof CvReadError)) console.error(error);
-    showMessage(ctx, 'This file couldn’t be read', readErrorMessage(error.code));
+    showMessage('This file couldn’t be read', readErrorMessage(error.code));
     return;
   }
 
   if (!hasReadableText(doc)) {
     if (doc.format !== 'pdf') {
-      showMessage(ctx, 'No text found', 'This file has almost no text in it. Try exporting your CV again as a PDF.');
+      showMessage('No text found', 'This file has almost no text in it. Try exporting your CV again as a PDF.');
       return;
     }
-    const scanned = await readScan(ctx, file);
+    const scanned = await readScan(ctx, file, setup, showMessage);
     if (!scanned) return;
     doc = scanned;
   }
@@ -60,14 +65,14 @@ export async function renderProfileImport({ source }, ctx) {
     sourceLabel: from.label,
     ocr: Boolean(doc.ocr),
     found: describe(found, filled),
-  });
+  }, { setup });
 }
 
 /** Asks before using OCR, then runs it with a progress bar. Returns the read document, or null. */
-function readScan(ctx, file) {
+function readScan(ctx, file, setup, showMessage) {
   return new Promise((resolve) => {
     const screen = createScreen(html`
-      ${subHeader('Fill in from file')}
+      ${subHeader(setup ? 'Your details' : 'Fill in from file')}
       <main class="content">
         <section class="panel">
           <h2 class="callout-title">${icon('file')} This CV is a scanned image</h2>
@@ -75,18 +80,19 @@ function readScan(ctx, file) {
           <p class="hint">The first time, this downloads about ${OCR_DOWNLOAD_MB} MB. Job portals usually can’t read scanned CVs, so it’s worth sending a PDF exported from Word or Google Docs instead.</p>
           <div class="stack">
             <button type="button" class="btn primary block" data-action="ocr">Read it with OCR</button>
-            <button type="button" class="btn block" data-action="cancel">Not now</button>
+            <button type="button" class="btn block" data-action="cancel">${setup ? 'Fill it in myself' : 'Not now'}</button>
           </div>
         </section>
       </main>
     `);
-    wireBack(screen, '/profile');
+    wireBack(screen, setup ? '/welcome' : '/profile');
     screen.querySelector('[data-action="cancel"]').addEventListener('click', () => {
       resolve(null);
-      back('/profile');
+      if (setup) navigate('/welcome/form', { replace: true });
+      else back('/profile');
     });
     screen.querySelector('[data-action="ocr"]').addEventListener('click', async () => {
-      const progress = progressScreen('Getting the text reader ready…', true);
+      const progress = progressScreen('Getting the text reader ready…', true, setup);
       mount(progress, ctx);
       const bar = progress.querySelector('.meter span');
       const label = progress.querySelector('[data-label]');
@@ -98,14 +104,14 @@ function readScan(ctx, file) {
           },
         });
         if (!hasReadableText(doc)) {
-          showMessage(ctx, 'No text found', 'Even with OCR, almost no text could be read. Try a sharper scan, or export your CV as a PDF from Word or Google Docs.');
+          showMessage('No text found', 'Even with OCR, almost no text could be read. Try a sharper scan, or export your CV as a PDF from Word or Google Docs.');
           resolve(null);
           return;
         }
         resolve(doc);
       } catch (error) {
         if (!(error instanceof CvReadError)) console.error(error);
-        showMessage(ctx, 'This file couldn’t be read', readErrorMessage(error.code));
+        showMessage('This file couldn’t be read', readErrorMessage(error.code));
         resolve(null);
       }
     });
@@ -132,9 +138,9 @@ function describe(found, filled) {
   return `Found ${list}.${kept}`;
 }
 
-function progressScreen(text, withBar = false) {
+function progressScreen(text, withBar = false, setup = false) {
   return createScreen(html`
-    ${subHeader('Fill in from file')}
+    ${subHeader(setup ? 'Your details' : 'Fill in from file')}
     <main class="content">
       <div class="panel loading-block" role="status">
         <div class="loading">
@@ -147,17 +153,22 @@ function progressScreen(text, withBar = false) {
   `);
 }
 
-function showMessage(ctx, title, message) {
+function messageScreen(ctx, title, message, setup) {
   const screen = createScreen(html`
-    ${subHeader('Fill in from file')}
+    ${subHeader(setup ? 'Your details' : 'Fill in from file')}
     <main class="content">
       <section class="panel">
         <h2 class="callout-title">${icon('info')} ${title}</h2>
         <p>${message}</p>
-        <a class="btn block" href="#/profile">Back to profile</a>
+        ${setup
+          ? html`<div class="stack">
+              <a class="btn primary block" href="#/welcome/form">Fill it in myself</a>
+              <a class="btn block" href="#/welcome">Try another file</a>
+            </div>`
+          : html`<a class="btn block" href="#/profile">Back to profile</a>`}
       </section>
     </main>
   `);
-  wireBack(screen, '/profile');
+  wireBack(screen, setup ? '/welcome' : '/profile');
   mount(screen, ctx);
 }

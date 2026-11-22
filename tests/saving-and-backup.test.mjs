@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import * as store from '../app/js/store.js';
 import { buildBackup, importBackup, backupReminderDue } from '../app/js/backup.js';
 import { normalize, SCHEMA_VERSION } from '../app/js/model.js';
-import { getProfile, saveProfile, deleteProfileAndDocuments, saveDocumentFile, getDocument, saveCvCheck, getCvCheck } from '../app/js/profile.js';
+import { getProfile, saveProfile, deleteProfileAndDocuments, saveDocumentFile, getDocument, saveCvCheck, getCvCheck, needsSetup } from '../app/js/profile.js';
 
 const application = (fields) => normalize({ company: 'Acme', title: 'Analyst', ...fields });
 const backupFile = (data) => new File([typeof data === 'string' ? data : JSON.stringify(data)], 'backup.json', { type: 'application/json' });
@@ -148,4 +148,11 @@ test('the backup reminder comes when there is something worth backing up', () =>
   assert.equal(backupReminderDue([made('2026-10-01T00:00:00Z')], { now, lastBackupAt: backedUp }), false, 'nothing changed since');
   assert.equal(backupReminderDue([made('2026-10-01T00:00:00Z', '2026-11-05T00:00:00Z')], { now, lastBackupAt: backedUp }), true, 'changed, 3 weeks later');
   assert.equal(backupReminderDue([made('2026-10-01T00:00:00Z', '2026-11-20T00:00:00Z')], { now, lastBackupAt: '2026-11-15T00:00:00Z' }), false, 'changed, but backed up a week ago');
+});
+
+test('first-time setup shows only when nothing is saved yet', async () => {
+  assert.equal(await needsSetup(0), true, 'a new device');
+  assert.equal(await needsSetup(1), false, 'someone with applications already');
+  await saveProfile({ firstName: 'Alex' });
+  assert.equal(await needsSetup(0), false, 'someone with a profile already');
 });

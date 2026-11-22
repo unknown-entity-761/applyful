@@ -4,6 +4,9 @@
 // The same screen is the review step after reading a CV or LinkedIn PDF
 // (views/profile-import.js): it opens with what was found already filled in and
 // highlighted, and nothing is saved until you tap Save.
+//
+// It's also the form at the end of first-time setup (views/welcome.js, setup: true):
+// first name is required, the button says Confirm, and it goes to Home afterwards.
 
 import { html, raw, icon, createScreen, mount, showToast } from '../ui.js';
 import {
@@ -16,8 +19,9 @@ import {
   blankProject,
   blankCertification,
   MAX_NAME_LENGTH,
+  markSetupDone,
 } from '../profile.js';
-import { back } from '../router.js';
+import { back, navigate } from '../router.js';
 import { field, setFieldError, linkHints } from './fields.js';
 
 const LISTS = {
@@ -32,13 +36,14 @@ const LISTS = {
  *   draft  the profile with what was read already merged in (not saved yet)
  *   filled what came from the file: { fields: [...], skills: [...], items: Set of ids }
  */
-export async function renderProfileEdit(ctx, review = null) {
+export async function renderProfileEdit(ctx, review = null, { setup = false } = {}) {
   const profile = review ? review.draft : await getProfile();
+  const saveLabel = setup ? 'Confirm' : 'Save profile';
 
   const screen = createScreen(html`
     <header class="topbar">
-      <button type="button" class="text-btn" data-action="cancel">Cancel</button>
-      <h1 class="topbar-title" tabindex="-1">${review ? 'Check your profile' : 'Edit profile'}</h1>
+      <button type="button" class="text-btn" data-action="cancel">${setup ? 'Back' : 'Cancel'}</button>
+      <h1 class="topbar-title" tabindex="-1">${setup ? 'Your details' : review ? 'Check your profile' : 'Edit profile'}</h1>
       <span aria-hidden="true"></span>
     </header>
     <main class="content">
@@ -46,14 +51,19 @@ export async function renderProfileEdit(ctx, review = null) {
         <div class="callout info" role="note">
           <p class="callout-title">${icon('file')} Filled in from your ${review.sourceLabel}</p>
           <p>${review.found}</p>
-          <p>Check the highlighted parts and fix anything that’s wrong. Nothing is saved until you tap <strong>Save profile</strong>.${review.ocr ? ' This CV was a scanned image, so look out for misread letters.' : ''}</p>
+          <p>Check the highlighted parts and fix anything that’s wrong. Nothing is saved until you tap <strong>${saveLabel}</strong>.${review.ocr ? ' This CV was a scanned image, so look out for misread letters.' : ''}</p>
+        </div>`}
+      ${setup && !review && html`
+        <div class="callout info" role="note">
+          <p class="callout-title">${icon('pencil')} Add your details</p>
+          <p>Only your first name is needed now. You can add the rest any time on the Profile tab.</p>
         </div>`}
       <form class="form" novalidate>
         ${group('about', 'About you', html`
           <div class="two-col">
             ${field('firstName', 'First name', html`
               <input id="f-firstName" name="firstName" type="text" value="${profile.firstName}"
-                     autocomplete="given-name" autocapitalize="words" maxlength="${MAX_NAME_LENGTH}">`)}
+                     autocomplete="given-name" autocapitalize="words" maxlength="${MAX_NAME_LENGTH}">`, { required: setup })}
             ${field('lastName', 'Last name', html`
               <input id="f-lastName" name="lastName" type="text" value="${profile.lastName}"
                      autocomplete="family-name" autocapitalize="words" maxlength="60">`)}
@@ -97,7 +107,7 @@ export async function renderProfileEdit(ctx, review = null) {
           <p class="hint">Saved only on this device. Used later to fill in cover letters.</p>`)}
 
         <div class="form-actions">
-          <button type="submit" class="btn primary block">Save profile</button>
+          <button type="submit" class="btn primary block">${saveLabel}</button>
         </div>
       </form>
     </main>
@@ -146,7 +156,7 @@ export async function renderProfileEdit(ctx, review = null) {
   screen.querySelector('[data-action="cancel"]').addEventListener('click', () => {
     const question = review ? 'Discard what was read from your file? Your profile stays as it was.' : 'Discard your changes?';
     if (dirty && !window.confirm(question)) return;
-    back('/profile');
+    back(setup ? '/welcome' : '/profile');
   });
 
   form.addEventListener('submit', async (event) => {
@@ -157,6 +167,7 @@ export async function renderProfileEdit(ctx, review = null) {
       ...Object.fromEntries(Object.keys(LISTS).map((kind) => [kind, readItems(form, kind)])),
     });
     const errors = validateProfile(draft);
+    if (setup && !draft.firstName) errors.firstName = 'Add your first name.';
 
     for (const fieldEl of form.querySelectorAll('.field[data-field]')) setFieldError(fieldEl, errors[fieldEl.dataset.field] ?? '');
     if (Object.keys(errors).length > 0) {
@@ -172,6 +183,12 @@ export async function renderProfileEdit(ctx, review = null) {
       return;
     }
     dirty = false;
+    if (setup) {
+      markSetupDone();
+      showToast(`Welcome, ${draft.firstName}. You’re all set.`);
+      navigate('/', { replace: true });
+      return;
+    }
     showToast('Profile saved');
     back('/profile');
   });

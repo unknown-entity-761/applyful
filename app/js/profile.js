@@ -269,6 +269,21 @@ export function dismissNamePrompt() {
   setPref(PROMPT_DISMISSED_KEY, '1');
 }
 
+// ---- First-time setup (views/welcome.js) ----
+
+const SETUP_DONE_KEY = 'jt-setup-done';
+
+export function markSetupDone() {
+  setPref(SETUP_DONE_KEY, '1');
+}
+
+/** True the first time the app opens on a device with nothing saved yet. */
+export async function needsSetup(applicationCount) {
+  if (getPref(SETUP_DONE_KEY, '') === '1' || applicationCount > 0) return false;
+  const [profile, cv] = await Promise.all([getProfile(), getDocument('cv')]);
+  return isProfileEmpty(profile) && !cv;
+}
+
 // ---- CV and LinkedIn files ----
 
 /** The saved file for 'cv' or 'linkedin', or null. Includes its data. */

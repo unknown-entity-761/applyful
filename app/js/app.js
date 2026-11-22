@@ -18,6 +18,8 @@ import { renderDetail } from './views/detail.js';
 import { renderSettings } from './views/settings.js';
 import { renderNotifications, renderData, renderInstall } from './views/settings-pages.js';
 import { renderLegal } from './views/legal.js';
+import { renderWelcome } from './views/welcome.js';
+import { needsSetup } from './profile.js';
 import './install.js';
 
 async function boot() {
@@ -49,6 +51,16 @@ async function boot() {
   route('/settings/data', (_, ctx) => renderData(ctx));
   route('/settings/install', (_, ctx) => renderInstall(ctx));
   route('/legal/:page', (params, ctx) => renderLegal(params, ctx));
+  // First-time setup
+  route('/welcome', (_, ctx) => renderWelcome(ctx));
+  route('/welcome/cv', (_, ctx) => renderProfileImport({ source: 'cv' }, ctx, { setup: true }));
+  route('/welcome/form', (_, ctx) => renderProfileEdit(ctx, null, { setup: true }));
+
+  // The first time the app opens on a device with nothing saved, start with setup.
+  const opening = location.hash.replace(/^#/, '') || '/';
+  if (opening === '/' && (await needsSetup((await store.listApplications()).length))) {
+    history.replaceState(null, '', '#/welcome');
+  }
   start(() => navigate('/', { replace: true }));
 
   registerServiceWorker();

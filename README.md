@@ -35,6 +35,9 @@ Then open http://localhost:5173/ in a browser. To see it at phone size in Chrome
 - **OCR for scanned CVs**: if a PDF is a picture of text, the app offers to read it with Tesseract OCR, on the device. The OCR engine (about 5 MB) is only downloaded the first time someone uses it.
 - **Settings** (☰ on Profile): Appearance (Match phone, Light, Dark), add to home screen, notification settings (shown, switched on in version 2), **Help improve the app** (opt-in usage data, off by default; `app/js/analytics.js`, nothing is sent until version 2 connects an analytics service), backup/restore/storage/delete, and draft privacy policy, data disclosure, product disclosure statement, terms of use and help. The legal drafts are in `app/js/content/legal.js`; fill in the [square brackets] and get them reviewed before launch.
 
+- **Add to calendar**: an application's details screen offers "Calendar app" (a calendar file with a 9 am reminder) and "Google Calendar" for its follow-up date (`app/js/calendar.js`).
+- **Backups** include the CV, LinkedIn PDF and last CV check, and Home reminds you to back up. Phones are asked to add the app to the Home Screen.
+
 Still to come in version 2 (see the PRD): email import, reminders, contacts from email, cover letters and job match. Those need an online service.
 
 ## Version 3 so far: the CV check
@@ -49,6 +52,10 @@ Open it from **Profile → CV and LinkedIn → Check your CV**. It reads your CV
 The rest of the PRD's version 3 needs the AI service: rewrites you can accept into your profile, a full spelling and grammar check, and checking against a job.
 
 The PDF reader is [pdf.js](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2.0), copied into `app/vendor/pdfjs` so it works offline. The OCR engine is [Tesseract.js](https://github.com/naptha/tesseract.js) (Apache-2.0) with the compact English model, in `app/vendor/tesseract`; it isn't in the offline file list, so it's only downloaded when needed. To update either: `npm.cmd install <package>@<version> --save-dev --save-exact`, then `npm.cmd run vendor`, then `npm.cmd test`.
+
+## Version 4 so far: first-time setup
+
+The first time the app opens on a device with nothing saved, it starts at **#/welcome**: upload a CV (read on the device, then the profile form opens with what was found highlighted) or fill it in by hand. Only the first name is required, nothing is saved until Confirm, and "Skip for now" goes to Home. When accounts arrive, this runs straight after signing up. Code: `app/js/views/welcome.js`, plus a `setup` option in `profile-import.js` and `profile-edit.js`.
 
 ## Preview label
 
@@ -125,6 +132,8 @@ flowchart LR
 | `app/js/cv/parse.js` | Reads a CV or LinkedIn PDF into profile fields, with plain rules (no AI) |
 | `app/js/cv/ocr.js` | Reads scanned PDFs with Tesseract OCR, loaded only when needed |
 | `app/js/views/cv-check.js` | The CV check screen |
+| `app/js/views/welcome.js` | First-time setup: upload a CV or fill in the profile by hand |
+| `app/js/calendar.js` | "Add to calendar" for follow-up dates: a calendar file or a Google Calendar link |
 | `app/js/views/profile-import.js` | "Fill in my profile from my CV": reading, the OCR offer, then the review |
 | `app/vendor/pdfjs/` | pdf.js, the PDF reader (copied from npm by `tools/vendor.ps1`) |
 | `app/vendor/tesseract/` | Tesseract OCR and its English model (copied from npm by `tools/vendor.ps1`) |
