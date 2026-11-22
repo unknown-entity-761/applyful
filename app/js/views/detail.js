@@ -19,6 +19,7 @@ import {
 } from '../ui.js';
 import { getApplication, saveApplication, deleteApplication } from '../store.js';
 import { findCv, openFile } from '../profile.js';
+import { gmailLink, gmailAddress } from '../email/gmail.js';
 import { STATUSES, statusInfo, withStatus, isOpen, isFollowUpDue, followUpText } from '../model.js';
 import { back, refresh } from '../router.js';
 import { googleCalendarUrl, openCalendarFile } from '../calendar.js';
@@ -98,6 +99,28 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
             </div>
           </div>`}
       </section>
+
+      ${(app.contacts ?? []).length > 0 && html`
+        <section class="panel">
+          <h2 class="panel-title">Contacts</h2>
+          <ul class="contact-cards">
+            ${app.contacts.map((c) => html`
+              <li class="contact-card">
+                <p class="entry-title">${c.name || c.email}</p>
+                ${c.title && html`<p class="entry-sub">${c.title}</p>`}
+                <ul class="contact-list">
+                  ${c.email && html`<li>${icon('mail')} <a href="mailto:${c.email}">${c.email}</a></li>`}
+                  ${c.phone && html`<li>${icon('phone')} <a href="tel:${c.phone.replace(/[^\d+]/g, '')}">${c.phone}</a></li>`}
+                </ul>
+                ${c.lastAt && html`<p class="muted small">Last wrote ${formatDate(c.lastAt.slice(0, 10))}</p>`}
+              </li>`)}
+          </ul>
+        </section>`}
+
+      ${(app.emailThreads ?? []).length > 0 && gmailAddress() && html`
+        <a class="btn block" href="${gmailLink(app.emailThreads[app.emailThreads.length - 1])}" target="_blank" rel="noopener noreferrer">
+          ${icon('mail')} View its emails in Gmail<span class="visually-hidden"> (opens Gmail)</span>
+        </a>`}
 
       ${app.notes && html`
         <section class="panel">

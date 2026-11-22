@@ -57,6 +57,21 @@ The PDF reader is [pdf.js](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2
 
 The first time the app opens on a device with nothing saved, it starts at **#/welcome**: upload a CV (read on the device, then the profile form opens with what was found highlighted) or fill it in by hand. Only the first name is required, nothing is saved until Confirm, and "Skip for now" goes to Home. When accounts arrive, this runs straight after signing up. Code: `app/js/views/welcome.js`, plus a `setup` option in `profile-import.js` and `profile-edit.js`.
 
+### Email import (version 5, built first)
+
+Settings → Gmail connects Gmail **read-only** (`app/js/email/gmail.js`), using Google's own sign-in window (Google Identity Services, loaded only on the Gmail screens). Email is read on the device, straight from Google; nothing from it reaches Supabase except what's saved on applications. The access token lasts about an hour and lives only in memory.
+
+`app/js/email/rules.js` recognises job emails without AI: confirmations, assessment and interview invites, offers and rejections (a "what if" sentence like "if you don't hear back, consider your application unsuccessful" isn't a rejection), plus the company, job title, job number, portal, and a recruiter's name, title and phone from their signature. `app/js/email/import.js` applies them, as the PRD sets out: a confirmation adds an application (with the address you applied with); later emails move it on, never backwards; matching goes conversation → job number or exact title → the only open application at that company; anything uncertain goes to **Needs a look**. Every change is listed on Activity with **Undo** (`app/js/views/email.js`). Decided for now: changes happen automatically with undo (the PRD's open question), Gmail only.
+
+**To switch it on** (Google Cloud, free):
+1. console.cloud.google.com → create a project (e.g. "Foliofy").
+2. **APIs & Services → Library**: enable the **Gmail API**.
+3. **Google Auth Platform → Branding** (the OAuth consent screen): app name Foliofy, your support email, and the app's home page and privacy policy links. **Audience**: External, and while it's in Testing add your own Gmail (and testers, up to 100) as test users. **Data access**: add the scope `.../auth/gmail.readonly`.
+4. **Clients → Create client**: type **Web application**; Authorized JavaScript origins `https://unknown-entity-761.github.io` and `http://localhost:5173`. No redirect URIs are needed.
+5. Put the **Client ID** (it ends in `.apps.googleusercontent.com`; it's public, unlike the client secret, which isn't used) in `GOOGLE_CLIENT_ID` in `app/js/config.js`.
+
+While the app is in Testing, Google shows an "unverified app" warning and only test users can connect. Opening it to everyone needs Google's verification, and because Gmail read access is a restricted scope, a yearly security assessment (CASA); do that before the public launch.
+
 ### CV history (version 4.2)
 
 Adding a different CV keeps the previous one as an earlier version, with its CV check score (`archiveCv` in `app/js/profile.js`); the same file again changes nothing. The newest 10 are kept, in the documents store as `cv-v:<version id>`. Every CV gets a version id when it's added (older CVs get one from their upload time, the same on every device), and applications record the CV they were sent with (`cvVersionId`, chosen on the form as "CV sent", shown on the application). Profile → CV history (`app/js/views/cv-history.js`) lists them: view, make current, or delete. Earlier CVs sync through the `cv_versions` table and `<user id>/cv-versions/<id>` files (`syncCvVersions` in `sync.js`), with deletions kept as `deleted = true`; when another device's CV replaces this one's, this one is kept in the history first. Backups carry them too (`cvVersions`).

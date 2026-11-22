@@ -7,6 +7,7 @@ import { hasUsageConsent, setUsageConsent } from '../analytics.js';
 import { isInstalled } from '../install.js';
 import { APP_NAME, APP_VERSION } from '../config.js';
 import { currentUser } from '../auth.js';
+import { gmailAddress } from '../email/gmail.js';
 import { subHeader, wireBack } from './components.js';
 
 export async function renderSettings(ctx) {
@@ -37,6 +38,13 @@ export async function renderSettings(ctx) {
         </div>
         <ul class="menu">
           ${menuRow('#/settings/install', 'smartphone', 'Add to home screen', isInstalled() ? 'Installed' : '')}
+        </ul>
+      </section>
+
+      <section class="settings-group" aria-labelledby="set-email">
+        <h2 class="group-title" id="set-email">Email</h2>
+        <ul class="menu">
+          ${menuRow('#/settings/email', 'mail', 'Gmail', gmailAddress() ? 'Connected' : 'Not connected')}
         </ul>
       </section>
 

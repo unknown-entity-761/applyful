@@ -125,6 +125,16 @@ export const LEGAL_PAGES = {
         ],
       },
       {
+        heading: 'Gmail, if you connect it',
+        paragraphs: [
+          'Connecting Gmail is optional (Settings → Gmail). Google asks you to allow read-only access: Foliofy can’t send, delete or change your email.',
+          'Your email is read on your device, straight from Google, and never sent to our server. The app looks only at job emails: application confirmations, assessment and interview invites, offers and rejections. From those it saves, on your applications: the company, job title, job number, portal, status, the email address you applied with, a link to the email in Gmail, and the name, job title, email address and phone number of a recruiter who writes to you. These are kept like the rest of your applications (on your device, and in your account or online copy if you use one).',
+          'The permission Google gives lasts about an hour and is kept only in the app’s memory, never saved. Disconnecting Gmail in Settings withdraws it; you can also remove Foliofy at myaccount.google.com/permissions. Disconnecting clears the list of email changes on this device; applications already added stay.',
+          'Google’s sign-in window is on Google’s own site, under Google’s privacy policy. Foliofy loads Google’s sign-in code only when you open the Gmail screens.',
+          'Foliofy’s use and transfer of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements. We don’t use Gmail data for advertising, don’t sell it, don’t let people read it, and don’t use it to train AI.',
+        ],
+      },
+      {
         heading: 'Online copy without an account',
         paragraphs: [
           'Without an account, the app asks you once whether to keep a copy online. If you say yes, your applications, profile (which can include your name and contact details), CV and LinkedIn files and CV check results are kept on our server (Supabase, in Sydney, Australia). The copy is held under a random ID instead of an account, so no email address or password is attached to it. Files are kept in private storage.',
@@ -149,7 +159,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'Future versions',
         paragraphs: [
-          'Later versions will add optional features such as reading your Gmail, writing cover letters, and an AI review of your CV. Before any of these goes live, we’ll update this policy, and the app will ask for your permission first.',
+          'Later versions will add optional AI features, such as writing cover letters and an AI review of your CV. Before any of these goes live, we’ll update this policy, and the app will ask for your permission first.',
         ],
       },
       {
@@ -199,7 +209,7 @@ export const LEGAL_PAGES = {
       },
       {
         heading: 'No third-party cookies',
-        paragraphs: ['Foliofy doesn’t use advertising cookies, and no other company sets cookies through the app.'],
+        paragraphs: ['Foliofy doesn’t use advertising cookies, and no other company sets cookies through the app. If you connect Gmail, you sign in to Google in Google’s own window, on Google’s site, under Google’s cookie and privacy policies.'],
       },
     ],
   },
@@ -220,6 +230,7 @@ export const LEGAL_PAGES = {
             ['CV check results', 'Your score, how many things to fix, and which suggestions you ignored', 'This device, plus your account or online copy', 'No one; Supabase stores it for us'],
             ['Preferences', 'Light or dark mode, sort order, dismissed prompts', 'This device', 'No one'],
             ['Backups', 'A copy of your applications, profile, CV and LinkedIn files', 'Wherever you save the file', 'Anyone you give the file to'],
+            ['From your email (only if you connect Gmail)', 'Read on your device. Saved on applications: company, job title, job number, portal, status, the email you applied with, a link to the email, and recruiter contact details', 'With your applications', 'No one; your emails never reach our server'],
             ['Online copy (only if you choose one, without an account)', 'The four rows above, under a random ID instead of an account (no email address or password)', 'Supabase, in Sydney, until you turn it off or 12 months unused', 'Supabase, which runs it for us'],
             ['Account (only if you create one)', 'Email address, a scrambled copy of your password, sign-up date, what you agreed to', 'Supabase, in Sydney', 'Supabase, which runs it for us'],
             ['Analytics (only if you accept analytics cookies)', 'Screens and features used, app version, phone or computer layout, whether you’re signed in, a random device ID', 'Our database (Supabase, Sydney), for [14 months]', 'Only us'],
@@ -243,7 +254,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'Coming later',
         paragraphs: [
-          'If you choose to connect Gmail or use the AI tools (cover letters, job match and the AI review of your CV), the app will explain exactly what it reads and where it’s sent before you agree. You’ll be able to disconnect at any time.',
+          'If you choose to use the AI tools (cover letters, job match and the AI review of your CV), the app will explain exactly what it sends and where before you agree.',
         ],
       },
     ],
@@ -368,7 +379,10 @@ export const LEGAL_PAGES = {
       },
       {
         heading: 'Coming soon',
-        list: ['Changing the email you sign in with, and deleting your account from inside the app.'],
+        list: [
+          'Adding and updating applications from your Gmail, with recruiter contacts. It’s built and being set up with Google; Settings → Gmail says when it’s ready.',
+          'Changing the email you sign in with, and deleting your account from inside the app.',
+        ],
       },
       {
         heading: 'Later',
@@ -384,7 +398,6 @@ export const LEGAL_PAGES = {
         list: [
           'Cover letters and a job match check, written with AI, that you can edit before using.',
           'An AI review of your CV, with rewrites you can accept.',
-          'Adding and updating applications from your Gmail, with recruiter contacts.',
           'A new look, more languages, and Foliofy on Google Play and the App Store.',
         ],
       },
@@ -430,6 +443,13 @@ export const LEGAL_PAGES = {
         paragraphs: [
           'Go to Profile, add your CV (a PDF or Word .docx file), then tap Check your CV. You’ll see a score, what to fix (most important first) and what’s already strong.',
           'Tap a suggestion to see the lines in your CV it’s about and how to fix them. If one doesn’t apply to you, tap Ignore this suggestion. Your CV is checked on this device. If you’re signed in, the CV and its check are also kept in your account (or in your online copy, if you keep one).',
+        ],
+      },
+      {
+        heading: 'Adding applications from your email',
+        paragraphs: [
+          'Connect Gmail in Settings → Gmail, then tap Check Gmail now on Activity. A confirmation email adds the application; later emails move it on (assessment, interview, offer, rejection), never backwards. Recruiters who write are saved as contacts.',
+          'Every change is listed on Activity with Undo. An email that could belong to more than one application, or to none, waits under Needs a look: link it, add it as a new application, or mark it as not a job email.',
         ],
       },
       {

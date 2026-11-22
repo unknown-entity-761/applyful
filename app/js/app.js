@@ -20,6 +20,7 @@ import { renderDetail } from './views/detail.js';
 import { renderSettings } from './views/settings.js';
 import { renderNotifications, renderData, renderInstall } from './views/settings-pages.js';
 import { renderLegal } from './views/legal.js';
+import { renderEmailSettings } from './views/email.js';
 import { renderWelcome } from './views/welcome.js';
 import { needsSetup } from './profile.js';
 import { handleAuthRedirect, currentUser } from './auth.js';
@@ -60,6 +61,7 @@ async function boot() {
   route('/settings/notifications', (_, ctx) => renderNotifications(ctx));
   route('/settings/data', (_, ctx) => renderData(ctx));
   route('/settings/install', (_, ctx) => renderInstall(ctx));
+  route('/settings/email', (_, ctx) => renderEmailSettings(ctx));
   route('/legal/:page', (params, ctx) => renderLegal(params, ctx));
   // Account (optional sign-in)
   route('/account', (_, ctx) => renderAccount(ctx));

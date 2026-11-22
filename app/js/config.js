@@ -9,3 +9,8 @@ export const APP_VERSION = '4.0 preview';
 // allows (see supabase/schema.sql). The secret key must never be put here.
 export const SUPABASE_URL = 'https://hjzlibvzotmkqawhstdn.supabase.co';
 export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_P_DWJ-9lxdTD1V1A1ZneJg_t3HIFfrx';
+
+// Gmail, read-only (version 5, email import). A Google Cloud "OAuth client ID" for a
+// web application; it's public by design (no secret goes here). Empty = the Gmail
+// screens say it isn't set up yet. See README, "Email import".
+export const GOOGLE_CLIENT_ID = '';

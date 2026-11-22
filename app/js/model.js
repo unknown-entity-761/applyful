@@ -63,6 +63,10 @@ export function makeId() {
  *   followUpOn    'YYYY-MM-DD' or ''
  *   notes         free text
  *   statusHistory [{ status, at }] oldest first, at = ISO timestamp
+ *   cvVersionId   which CV was sent (CV history), or ''
+ *   jobId         the job or requisition number, if known (from email import), or ''
+ *   emailThreads  Gmail conversation ids linked to it (email import), [] if none
+ *   contacts      [{ name, title, email, phone, firstAt, lastAt }] recruiters who wrote about it
  *   createdAt     ISO timestamp
  *   updatedAt     ISO timestamp (set by the store on every save)
  */
@@ -111,6 +115,23 @@ export function normalize(input) {
     status: STATUS_MAP.has(input.status) ? input.status : DEFAULT_STATUS,
     followUpOn: date(input.followUpOn),
     cvVersionId: text(input.cvVersionId, 64), // which CV was sent (CV history, profile.js); '' if none
+    jobId: text(input.jobId, 60),
+    emailThreads: Array.isArray(input.emailThreads)
+      ? [...new Set(input.emailThreads.filter((id) => typeof id === 'string' && /^[\w-]{1,40}$/.test(id)))].slice(-50)
+      : [],
+    contacts: Array.isArray(input.contacts)
+      ? input.contacts
+          .filter((c) => c && typeof c === 'object' && (c.name || c.email))
+          .slice(0, 20)
+          .map((c) => ({
+            name: text(c.name, 80),
+            title: text(c.title, 80),
+            email: text(c.email, 254).toLowerCase(),
+            phone: text(c.phone, 40),
+            firstAt: isTimestamp(c.firstAt) ? c.firstAt : '',
+            lastAt: isTimestamp(c.lastAt) ? c.lastAt : '',
+          }))
+      : [],
     notes: String(input.notes ?? '').replace(/\s+$/, '').slice(0, 5000),
     statusHistory: Array.isArray(input.statusHistory)
       ? input.statusHistory

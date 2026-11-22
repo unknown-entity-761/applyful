@@ -1,11 +1,13 @@
 // Activity tab: every status change across all applications, newest first.
 // Each day is a dropdown showing how many changes happened that day; tap it to
-// see them. In version 2, email updates will appear here as well.
+// see them. Above them, email import (version 5): Check Gmail, emails that need a
+// look, and the changes made from email, each with Undo (views/email.js).
 
 import { html, raw, icon, createScreen, mount, todayISO, addDays, toISODate, formatDate, plural } from '../ui.js';
 import { listApplications } from '../store.js';
 import { statusInfo } from '../model.js';
 import { tabBar } from './components.js';
+import { emailPanel, wireEmailPanel } from './email.js';
 
 const MAX_ITEMS = 300;
 
@@ -15,6 +17,7 @@ let openDays = null;
 
 export async function renderActivity(ctx) {
   const apps = await listApplications();
+  const fromEmail = await emailPanel();
 
   const events = [];
   for (const app of apps) {
@@ -42,6 +45,7 @@ export async function renderActivity(ctx) {
       <h1 class="topbar-title" tabindex="-1">Activity</h1>
     </header>
     <main class="content">
+      ${fromEmail}
       ${groups.length === 0
         ? html`
           <div class="empty">
@@ -74,6 +78,7 @@ export async function renderActivity(ctx) {
     });
   }
 
+  wireEmailPanel(screen, () => renderActivity({ active: true }));
   mount(screen, ctx);
 }
 
