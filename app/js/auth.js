@@ -18,11 +18,24 @@ export const MIN_AGE = 16;
 // Which versions of the terms and privacy policy people agree to. Bump when they change.
 export const LEGAL_VERSION = 'draft-2026-11';
 
-let session = null;
-try {
-  session = JSON.parse(getPref(SESSION_KEY, 'null'));
-} catch {
-  session = null;
+let session = readStoredSession();
+
+function readStoredSession() {
+  try {
+    return JSON.parse(getPref(SESSION_KEY, 'null')) || null;
+  } catch {
+    return null;
+  }
+}
+
+// Another tab signed in, out, or refreshed the session: use its copy.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== SESSION_KEY) return;
+    const wasSignedIn = Boolean(session);
+    session = readStoredSession();
+    if (wasSignedIn !== Boolean(session)) notify();
+  });
 }
 
 export class AuthError extends Error {
@@ -70,7 +83,9 @@ async function call(path, { method = 'GET', body, token } = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const code = data.error_code || data.code || (response.status === 429 ? 'over_request_rate_limit' : String(response.status));
-    throw new AuthError(typeof code === 'string' ? code : String(code), data.msg || data.error_description || data.message || '');
+    const error = new AuthError(typeof code === 'string' ? code : String(code), data.msg || data.error_description || data.message || '');
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
@@ -87,15 +102,16 @@ function keep(data) {
   return session;
 }
 
-function forget() {
+function forget(reason = 'signed-out') {
   session = null;
   setPref(SESSION_KEY, '');
-  notify();
+  notify(reason);
 }
 
-function notify() {
+/** reason: 'signed-in', 'signed-out', or 'expired' (the session was refused: log in again). */
+function notify(reason = session ? 'signed-in' : 'signed-out') {
   if (typeof window !== 'undefined' && typeof CustomEvent === 'function') {
-    window.dispatchEvent(new CustomEvent('foliofy:auth-changed', { detail: { signedIn: Boolean(session) } }));
+    window.dispatchEvent(new CustomEvent('foliofy:auth-changed', { detail: { signedIn: Boolean(session), reason } }));
   }
 }
 
@@ -116,7 +132,7 @@ export function currentUser() {
  */
 export async function signUp(email, password, { emailsOk = false } = {}) {
   const agreedAt = new Date().toISOString();
-  const consents = { terms: LEGAL_VERSION, privacy: LEGAL_VERSION, emails: Boolean(emailsOk), minAge: MIN_AGE, agreedAt };
+  const consents = { email: email.trim().toLowerCase(), terms: LEGAL_VERSION, privacy: LEGAL_VERSION, emails: Boolean(emailsOk), minAge: MIN_AGE, agreedAt };
   const data = await call(`signup?redirect_to=${encodeURIComponent(appAddress())}`, {
     method: 'POST',
     body: { email, password, data: { consents } },
@@ -133,9 +149,9 @@ export function resendConfirmation(email) {
 
 export async function logIn(email, password) {
   const data = await call('token?grant_type=password', { method: 'POST', body: { email, password } });
-  keep(data);
+  const user = keep(data).user; // kept before the await: a cancelled first sync may sign out meanwhile
   await recordPendingConsents();
-  return session.user;
+  return user;
 }
 
 export function sendPasswordReset(email) {
@@ -151,7 +167,8 @@ export async function setNewPassword(password) {
 export async function signOut() {
   const token = session?.accessToken;
   forget();
-  if (token) await call('logout', { method: 'POST', token }).catch(() => {}); // already signed out here either way
+  // scope=local: only this device. Other devices you're signed in on stay signed in.
+  if (token) await call('logout?scope=local', { method: 'POST', token }).catch(() => {}); // already signed out here either way
 }
 
 /**
@@ -161,14 +178,27 @@ export async function signOut() {
 export async function accessToken() {
   if (!session) return null;
   if (session.expiresAt - 60 > Date.now() / 1000) return session.accessToken;
-  try {
-    const data = await call('token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: session.refreshToken } });
-    keep(data);
-    return session.accessToken;
-  } catch (error) {
-    if (error.code !== 'network') forget(); // the refresh token was refused: signed out
-    return null;
-  }
+  // One tab refreshes at a time; the others then use its new session.
+  const refresh = async () => {
+    const latest = readStoredSession() ?? session;
+    if (latest && latest.expiresAt - 60 > Date.now() / 1000) {
+      session = latest;
+      return session.accessToken;
+    }
+    try {
+      const data = await call('token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: latest?.refreshToken ?? session.refreshToken } });
+      keep(data);
+      return session.accessToken;
+    } catch (error) {
+      // Offline, busy or a server hiccup: keep the session and try again later.
+      // Only a refused session means logging in again.
+      const temporary = error.code === 'network' || error.code === 'over_request_rate_limit' || error.status === 429 || error.status >= 500;
+      if (!temporary) forget('expired');
+      return null;
+    }
+  };
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) return navigator.locks.request('foliofy-session', refresh);
+  return refresh();
 }
 
 /**
@@ -210,6 +240,8 @@ export async function recordPendingConsents() {
     consents = null;
   }
   if (!consents) return false;
+  // Only for the account they were given for (not another account logged in on this device).
+  if (consents.email && consents.email !== String(session?.user?.email ?? '').toLowerCase()) return false;
   const token = await accessToken();
   if (!token) return false;
   const rows = [

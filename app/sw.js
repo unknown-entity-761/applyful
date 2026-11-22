@@ -6,7 +6,7 @@
 // GitHub also runs before every publish. Don't edit them by hand. The cache name
 // changes whenever a file changes, so phones pick up each new version.
 
-const CACHE = 'foliofy-a54d01366500';
+const CACHE = 'foliofy-a32a829a9154';
 
 const APP_FILES = [
   './',
@@ -85,24 +85,33 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// On a weak signal, wait this long for the network, then use the saved copy (the
+// fresh one still lands in the saved copy for next time).
+const NETWORK_WAIT_MS = 4000;
+
+const savedCopy = async (request) => {
+  const cached = await caches.match(request, { ignoreSearch: true });
+  if (cached) return cached;
+  if (request.mode === 'navigate') return caches.match('./index.html');
+  return undefined;
+};
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
+  const network = fetch(request, { cache: fresh(request.url) }).then(async (response) => {
+    if (response.ok) {
+      const cache = await caches.open(CACHE);
+      await cache.put(request, response.clone());
+    }
+    return response;
+  });
+  event.waitUntil(network.catch(() => {}));
+
+  const slow = new Promise((resolve) => setTimeout(resolve, NETWORK_WAIT_MS)).then(() => savedCopy(request));
   event.respondWith(
-    fetch(request, { cache: fresh(request.url) })
-      .then((response) => {
-        if (response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-        }
-        return response;
-      })
-      .catch(async () => {
-        const cached = await caches.match(request, { ignoreSearch: true });
-        if (cached) return cached;
-        if (request.mode === 'navigate') return caches.match('./index.html');
-        return Response.error();
-      }),
+    Promise.race([network, slow.then((cached) => cached ?? network)])
+      .catch(async () => (await savedCopy(request)) ?? Response.error()),
   );
 });

@@ -132,13 +132,13 @@ export async function renderData(ctx) {
         break;
       }
       case 'clear-apps':
-        if (!window.confirm(`Delete all ${plural(count, 'application')} from this device? This can’t be undone.`)) return;
+        if (!window.confirm(`Delete all ${plural(count, 'application')} ${currentUser() ? 'from your account and every device you’re signed in on' : 'from this device'}? This can’t be undone.`)) return;
         await clearAll();
         showToast('All applications deleted');
         await renderData(ctx);
         break;
       case 'clear-profile':
-        if (!window.confirm('Delete your profile, CV and LinkedIn files from this device? This can’t be undone.')) return;
+        if (!window.confirm(`Delete your profile, CV and LinkedIn files ${currentUser() ? 'from your account and every device you’re signed in on' : 'from this device'}? This can’t be undone.`)) return;
         await deleteProfileAndDocuments();
         showToast('Profile deleted');
         await renderData(ctx);

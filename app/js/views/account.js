@@ -54,6 +54,12 @@ export async function renderAccount(ctx) {
     </main>
   `);
   wireBack(screen, '/settings');
+  // Signed in or out from elsewhere (another tab, or Cancel on the first sync): redraw.
+  const onAuth = () => {
+    window.removeEventListener('foliofy:auth-changed', onAuth);
+    if (screen.isConnected) renderAccount({ active: true });
+  };
+  window.addEventListener('foliofy:auth-changed', onAuth);
   const line = screen.querySelector('[data-sync-status]');
   if (line) {
     const show = () => {

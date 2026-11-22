@@ -97,12 +97,17 @@ async function boot() {
   if (fromEmail) reportEmailLink(fromEmail);
   showConsentBanner();
 
+  // A session refused by the server (signed out elsewhere, or expired): say so.
+  window.addEventListener('foliofy:auth-changed', (event) => {
+    if (event.detail.reason === 'expired') showToast('You’ve been signed out on this device. Log in again in Settings, Account, to keep syncing.', { duration: 8000 });
+  });
+
   // Signed in: keep this device and the account in step. Changes from other devices
   // redraw the screen, unless you're in the middle of typing into a form.
   startSync({
     onRemoteChanges: () => {
       const path = location.hash.replace(/^#/, '');
-      const editing = /^\/(new|a\/[^/]+\/edit|profile\/edit|welcome|account)/.test(path);
+      const editing = /^\/(new|a\/[^/]+\/edit|profile\/(edit|import)|cv-check|welcome|account)/.test(path);
       if (!editing) refresh();
     },
   });

@@ -221,3 +221,32 @@ drop policy if exists "Anyone can add an event" on public.events;
 create policy "Anyone can add an event" on public.events
   for insert to anon, authenticated
   with check (true);
+
+-- ---- The newest copy always wins, on the server too ----
+-- A device sends its copy with the time it was last changed. If the account already
+-- has a newer copy (changed on another device), the older one is quietly ignored
+-- instead of overwriting it. Runs before the synced_at stamp ("0_" sorts first).
+
+create or replace function public.keep_newest() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.updated_at < old.updated_at then
+    return null; -- skip this update: the account's copy is newer
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists applications_0_keep_newest on public.applications;
+create trigger applications_0_keep_newest before update on public.applications
+  for each row execute function public.keep_newest();
+
+drop trigger if exists profiles_0_keep_newest on public.profiles;
+create trigger profiles_0_keep_newest before update on public.profiles
+  for each row execute function public.keep_newest();
+
+drop trigger if exists documents_0_keep_newest on public.documents;
+create trigger documents_0_keep_newest before update on public.documents
+  for each row execute function public.keep_newest();

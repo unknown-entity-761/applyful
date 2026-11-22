@@ -16,6 +16,7 @@ import {
 } from '../profile.js';
 import { navigate } from '../router.js';
 import { tabBar } from './components.js';
+import { currentUser } from '../auth.js';
 
 export async function renderProfile(ctx, scrollY = 0) {
   const [profile, cv, linkedin] = await Promise.all([getProfile(), getDocument('cv'), getDocument('linkedin')]);
@@ -136,7 +137,7 @@ export async function renderProfile(ctx, scrollY = 0) {
     if (button.dataset.docAction === 'open') {
       await openDocument(kind);
     } else if (button.dataset.docAction === 'remove') {
-      if (!window.confirm(`Remove your ${DOC_KINDS[kind].label} from this device?`)) return;
+      if (!window.confirm(`Remove your ${DOC_KINDS[kind].label} ${currentUser() ? 'from your account and every device you’re signed in on' : 'from this device'}?`)) return;
       await removeDocument(kind);
       showToast(`${DOC_KINDS[kind].label} removed`);
       await renderProfile(ctx, window.scrollY);

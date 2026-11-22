@@ -116,3 +116,18 @@ test('merging keeps what you typed and only adds what is missing', async () => {
   assert.deepEqual(profile.skills.slice(0, 3), ['sql', 'Leadership', 'Python'], 'skills are not repeated in a different case');
   assert.ok(!filled.skills.includes('SQL'));
 });
+
+test('a different degree at the same school, or the same degree elsewhere, is added', async () => {
+  const current = normalizeProfile({ education: [{ id: 'e1', school: 'Monash University', qualification: 'Bachelor of Commerce' }] });
+  const found = normalizeProfile({ education: [
+    { school: 'Monash University', qualification: 'Master of Business' },
+    { school: 'RMIT University', qualification: 'Bachelor of Commerce' },
+    { school: 'Monash University', qualification: 'Bachelor of Commerce' },
+  ] });
+  const { profile } = mergeIntoProfile(current, found);
+  assert.deepEqual(profile.education.map((e) => [e.school, e.qualification]), [
+    ['Monash University', 'Bachelor of Commerce'],
+    ['Monash University', 'Master of Business'],
+    ['RMIT University', 'Bachelor of Commerce'],
+  ]);
+});

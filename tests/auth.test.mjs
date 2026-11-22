@@ -112,3 +112,22 @@ test('every message is plain English', () => {
   assert.match(authMessage('weak_password'), /at least 8/);
   assert.match(authMessage('something_new', 'Detail from server'), /Detail from server/);
 });
+
+test('a busy server does not sign you out; a refused session does, and says so', async () => {
+  supabase([200, tokens({ expires_in: 30 })], [201, {}]);
+  await logIn('alex@example.com', 'pw');
+  supabase([503, { message: 'Service unavailable' }]);
+  assert.equal(await accessToken(), null);
+  assert.ok(currentUser(), 'still signed in after a server hiccup');
+  supabase([400, { error_code: 'refresh_token_already_used' }]);
+  assert.equal(await accessToken(), null);
+  assert.equal(currentUser(), null, 'signed out once the session is refused');
+});
+
+test('signing out only signs out this device', async () => {
+  supabase([200, tokens()], [201, {}]);
+  await logIn('alex@example.com', 'pw');
+  supabase([204, {}]);
+  await signOut();
+  assert.ok(calls[0].url.endsWith('/auth/v1/logout?scope=local'), calls[0].url);
+});

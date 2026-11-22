@@ -174,7 +174,9 @@ export function mergeIntoProfile(current, found) {
 
   const same = {
     experience: (a, b) => normCompany(a.company) === normCompany(b.company) && (norm(a.title) === norm(b.title) || (a.start && a.start === b.start)),
-    education: (a, b) => (a.school && norm(a.school) === norm(b.school)) || (a.qualification && norm(a.qualification) === norm(b.qualification)),
+    // The same school and the same qualification (a missing one on either side counts as the same).
+    education: (a, b) => norm(a.school) === norm(b.school) &&
+      (!a.qualification || !b.qualification || norm(a.qualification) === norm(b.qualification)),
     projects: (a, b) => norm(a.name) === norm(b.name),
     certifications: (a, b) => norm(a.name) === norm(b.name),
   };
@@ -303,7 +305,7 @@ export function documentDeletedAt(kind) {
   return deletedMemory[kind] ?? getPref(deletedKey(kind), '');
 }
 
-function markDocumentDeleted(kind, at = new Date().toISOString()) {
+export function markDocumentDeleted(kind, at = new Date().toISOString()) {
   deletedMemory[kind] = at;
   setPref(deletedKey(kind), at);
 }
@@ -316,7 +318,7 @@ export async function saveDocumentFile(kind, file) {
   await putRecords(STORES.documents, [{
     id: kind,
     name: String(file.name || DOC_KINDS[kind].label).slice(0, 120),
-    type: file.type || 'application/octet-stream',
+    type: safeDocType(file.type, file.name),
     size: file.size,
     uploadedAt: new Date().toISOString(),
     data,
@@ -354,15 +356,38 @@ export async function saveCvCheck(cv, { score, label, toFix, ignored }) {
 }
 
 /** Opens a saved file in a new tab (PDFs show in the browser; Word files download). */
+const FILE_TYPES = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+};
+
+/**
+ * Only the three kinds of file a CV can be. Anything else (from a damaged or crafted
+ * backup, say) becomes a plain download, so it can never open as a web page.
+ */
+export function safeDocType(type, name = '') {
+  if (Object.values(FILE_TYPES).includes(type)) return type;
+  return FILE_TYPES[String(name).split('.').pop().toLowerCase()] ?? 'application/octet-stream';
+}
+
+/** True only for a real PDF: the right type, and the file starts with %PDF. */
+export function isRealPdf(doc) {
+  if (doc.type !== FILE_TYPES.pdf || !doc.data || doc.data.byteLength < 4) return false;
+  const start = new Uint8Array(doc.data, 0, 4);
+  return String.fromCharCode(...start) === '%PDF';
+}
+
 export async function openDocument(kind) {
   const doc = await getDocument(kind);
   if (!doc) return;
-  const url = URL.createObjectURL(new Blob([doc.data], { type: doc.type }));
+  const pdf = isRealPdf(doc);
+  const url = URL.createObjectURL(new Blob([doc.data], { type: pdf ? FILE_TYPES.pdf : 'application/octet-stream' }));
   const link = document.createElement('a');
   link.href = url;
   link.target = '_blank';
   link.rel = 'noopener';
-  if (!doc.type.includes('pdf')) link.download = doc.name;
+  if (!pdf) link.download = doc.name;
   document.body.append(link);
   link.click();
   link.remove();

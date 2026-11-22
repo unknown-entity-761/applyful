@@ -268,3 +268,40 @@ test('the CV, its check, and removing it reach the other device', async () => {
   assert.equal(server.documents.get('cv').deleted, true);
   assert.equal(server.files.has('cv'), false);
 });
+
+// ---- Fixes from the 22 Nov 2026 review ----
+
+test('restored applications reach the account, even though their dates are old', async () => {
+  await logIn('alex@example.com', 'pw');
+  await syncNow({ confirmMove: () => true }); // an already-synced device
+  await store.putMany([app('restored', '2020-01-01T00:00:00Z')]); // as a backup restore does
+  const result = await syncNow();
+  assert.equal(result.pushed, 1);
+  assert.ok(server.rows.has('restored'));
+});
+
+test('first sign-in on a device with its own profile combines both profiles', async () => {
+  // The account already has a full profile from another device.
+  server.profiles.set('user-1', {
+    data: { firstName: 'Alex', skills: ['SQL', 'Python'], experience: [{ id: 'j1', title: 'Analyst', company: 'Contoso' }] },
+    updated_at: pg('2026-11-20T00:00:00Z'),
+  });
+  // This device only has a first name, typed on the Welcome screen just now.
+  await saveProfile({ firstName: 'Alexandra' });
+  await logIn('alex@example.com', 'pw');
+  await syncNow({ confirmMove: () => true });
+  const merged = await getProfile();
+  assert.equal(merged.firstName, 'Alexandra', 'the newer name wins');
+  assert.deepEqual(merged.skills, ['SQL', 'Python'], 'nothing from the account was lost');
+  assert.equal(merged.experience.length, 1);
+  assert.deepEqual(server.profiles.get('user-1').data.skills, ['SQL', 'Python'], 'and the account has the combined profile');
+});
+
+test('a file deleted on another device is removed once, not at every sync', async () => {
+  await logIn('alex@example.com', 'pw');
+  server.documents.set('linkedin', { kind: 'linkedin', name: '', type: '', size: 0, uploaded_at: pg('2026-11-21T00:00:00Z'), deleted: true, cv_check: null, updated_at: pg('2026-11-21T00:00:00Z') });
+  const first = await syncNow({ confirmMove: () => true });
+  const second = await syncNow();
+  assert.equal(first.applied, 0, 'nothing here to remove');
+  assert.equal(second.applied, 0, 'and nothing applied again');
+});

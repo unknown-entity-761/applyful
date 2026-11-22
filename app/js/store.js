@@ -147,9 +147,14 @@ export async function saveApplication(app) {
   return record;
 }
 
-/** Writes applications exactly as given, keeping their timestamps (used by restore and undo). */
-export function putMany(records) {
-  return putRecords(STORES.applications, records);
+/**
+ * Writes applications exactly as given, keeping their timestamps (used by restore).
+ * They may be older than the last sync, so they're marked to be sent regardless;
+ * the account keeps whichever copy is newer.
+ */
+export async function putMany(records) {
+  await putRecords(STORES.applications, records);
+  markUnsent(records.map((record) => record.id));
 }
 
 export function deleteApplication(id) {
@@ -198,6 +203,48 @@ function forgetDeletions(ids) {
   if (!ids.some((id) => id in list)) return;
   for (const id of ids) delete list[id];
   saveDeletions();
+}
+
+// Applications restored with their old timestamps, to be sent at the next sync.
+const UNSENT_KEY = 'jt-unsent';
+let unsent = null;
+
+function loadUnsent() {
+  if (!unsent) {
+    try {
+      unsent = new Set(JSON.parse(getPref(UNSENT_KEY, '[]')));
+    } catch {
+      unsent = new Set();
+    }
+  }
+  return unsent;
+}
+
+function markUnsent(ids) {
+  for (const id of ids) loadUnsent().add(id);
+  setPref(UNSENT_KEY, JSON.stringify([...loadUnsent()].slice(-2000)));
+}
+
+/** Applications to send at the next sync even if they look older than it. */
+export function pendingUnsent() {
+  return new Set(loadUnsent());
+}
+
+export function unsentSent(ids) {
+  for (const id of ids) loadUnsent().delete(id);
+  setPref(UNSENT_KEY, JSON.stringify([...loadUnsent()]));
+}
+
+/** Another tab changed these lists: read them again next time. */
+export function forgetCachedLists() {
+  deletions = null;
+  unsent = null;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === DELETIONS_KEY || event.key === UNSENT_KEY) forgetCachedLists();
+  });
 }
 
 /** Deleted applications not yet sent to the account: { id: deletedAt }. */

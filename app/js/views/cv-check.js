@@ -1,12 +1,14 @@
 // CV check (version 3): reads your CV on this device, then lists what to fix,
 // most important first, and what's already strong. Opened from the Profile tab.
-// Nothing is uploaded; see js/cv/extract.js and js/cv/rules.js.
+// The CV is read and checked on the device (js/cv/extract.js and js/cv/rules.js).
+// If you're signed in, the saved CV and its check are also kept in your account (sync.js).
 
 import { html, raw, icon, createScreen, mount, showToast, plural } from '../ui.js';
 import { DOC_KINDS, MAX_DOC_BYTES, getProfile, getDocument, saveDocumentFile, getCvCheck, saveCvCheck } from '../profile.js';
 import { extractCv, CvReadError, readErrorMessage } from '../cv/extract.js';
 import { checkCv, scoreCv, SEVERITIES } from '../cv/rules.js';
 import { track } from '../analytics.js';
+import { currentUser } from '../auth.js';
 import { subHeader, wireBack } from './components.js';
 
 // Fixes whose quotes come from your profile or LinkedIn, not from the CV itself.
@@ -73,7 +75,7 @@ function showAddCv(ctx) {
       <div class="empty">
         <div class="empty-icon">${icon('file')}</div>
         <h2>Check your CV</h2>
-        <p>See what’s strong and what to fix before a recruiter or job portal does. It’s checked on this device, and your CV isn’t uploaded.</p>
+        <p>See what’s strong and what to fix before a recruiter or job portal does. It’s checked here on your device${currentUser() ? ', and your CV and its check are kept in your account' : ', and your CV isn’t uploaded'}.</p>
         <label class="btn primary file-btn">
           ${icon('upload')} Add your CV
           <input type="file" class="visually-hidden" accept="${DOC_KINDS.cv.accept}" data-add-cv>
@@ -202,7 +204,7 @@ function resultBody(state) {
       </div>
     </section>
     <p class="privacy-note">${icon('info')} The score is a guide to how easily job portals and recruiters can read your CV, not a prediction of whether you’ll get the job. What works best differs by country and industry.</p>
-    <p class="privacy-note">${icon('shield')} Checked on this device with ${result.checks} checks. Your CV wasn’t uploaded.</p>
+    <p class="privacy-note">${icon('shield')} Checked on this device with ${result.checks} checks.${currentUser() ? '' : ' Your CV wasn’t uploaded.'}</p>
 
     ${active.length > 0 && html`
       <section class="group" aria-labelledby="fix-heading">

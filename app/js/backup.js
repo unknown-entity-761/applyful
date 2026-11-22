@@ -7,7 +7,7 @@
 
 import { listApplications, putMany, getRecord, putRecords, STORES } from './store.js';
 import { SCHEMA_VERSION, normalize } from './model.js';
-import { getProfile, saveProfile, normalizeProfile, isProfileEmpty, DOC_KINDS, MAX_DOC_BYTES, CV_CHECK_ID } from './profile.js';
+import { getProfile, normalizeProfile, isProfileEmpty, DOC_KINDS, MAX_DOC_BYTES, CV_CHECK_ID, safeDocType } from './profile.js';
 import { getPref, setPref } from './prefs.js';
 import { todayISO } from './ui.js';
 import { APP_NAME } from './config.js';
@@ -49,7 +49,7 @@ function documentFromBackup(item) {
   return {
     id: item.id,
     name: String(item.name || DOC_KINDS[item.id].label).slice(0, 120),
-    type: typeof item.type === 'string' ? item.type.slice(0, 120) : 'application/octet-stream',
+    type: safeDocType(item.type, item.name),
     size: data.byteLength,
     uploadedAt: item.uploadedAt,
     data,
@@ -134,7 +134,8 @@ export async function importBackup(file) {
     const incoming = normalizeProfile(data.profile);
     const current = await getProfile();
     if (!isProfileEmpty(incoming) && (isProfileEmpty(current) || incoming.updatedAt > current.updatedAt)) {
-      await saveProfile(incoming);
+      // Kept with the backup's own date, so a newer copy in your account still wins.
+      await putRecords(STORES.profile, [{ ...incoming, updatedAt: incoming.updatedAt || new Date().toISOString() }]);
       result.profileRestored = true;
     }
   }

@@ -18,9 +18,9 @@
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
 import { accessToken, currentUser, signOut } from './auth.js';
-import { STORES, getAllRecords, getRecord, putRecords, deleteRecord, pendingDeletions, deletionsSent } from './store.js';
+import { STORES, getAllRecords, getRecord, putRecords, deleteRecord, pendingDeletions, deletionsSent, pendingUnsent, unsentSent } from './store.js';
 import { normalize } from './model.js';
-import { normalizeProfile, isProfileEmpty, DOC_KINDS, CV_CHECK_ID, documentDeletedAt } from './profile.js';
+import { normalizeProfile, isProfileEmpty, mergeIntoProfile, DOC_KINDS, CV_CHECK_ID, documentDeletedAt, markDocumentDeleted, safeDocType } from './profile.js';
 import { getPref, setPref } from './prefs.js';
 
 const PAGE = 1000;
@@ -55,9 +55,10 @@ export function syncMessage(status, code = '', detail = '') {
  * remoteRows   what changed in the account since the last sync: { id, data, updated_at, deleted }
  * deletions    applications deleted here and not sent yet: { id: deletedAt }
  * lastPushedAt when this device last sent its changes
+ * unsent       ids restored with old timestamps, to send anyway (the server keeps the newer copy)
  * Returns { apply, removeLocal, push, sentDeletions }.
  */
-export function planSync({ localApps, remoteRows, deletions = {}, lastPushedAt = EPOCH }) {
+export function planSync({ localApps, remoteRows, deletions = {}, lastPushedAt = EPOCH, unsent = new Set() }) {
   const local = new Map(localApps.map((app) => [app.id, app]));
   const remote = new Map(remoteRows.map((row) => [row.id, row]));
   const apply = [];
@@ -80,7 +81,7 @@ export function planSync({ localApps, remoteRows, deletions = {}, lastPushedAt =
 
   for (const app of localApps) {
     const theirs = remote.get(app.id);
-    const newer = theirs ? time(app.updatedAt) > time(theirs.updated_at) : time(app.updatedAt) > time(lastPushedAt);
+    const newer = theirs ? time(app.updatedAt) > time(theirs.updated_at) : time(app.updatedAt) > time(lastPushedAt) || unsent.has(app.id);
     if (newer) push.push({ id: app.id, data: app, updated_at: app.updatedAt, deleted: false });
   }
 
@@ -211,11 +212,14 @@ async function syncDocuments(user, token) {
       applying = true;
       try {
         if (row.deleted) {
+          // Remember it, so the same deletion isn't applied again at every sync.
+          markDocumentDeleted(kind, toAppTime(row.updated_at));
           if (local) await deleteRecord(STORES.documents, kind);
           if (kind === 'cv') await deleteRecord(STORES.documents, CV_CHECK_ID);
+          if (!local) continue;
         } else {
           const data = await files(`authenticated/${path}`, token);
-          const doc = { id: kind, name: row.name, type: row.type, size: data.byteLength, uploadedAt: toAppTime(row.uploaded_at), data };
+          const doc = { id: kind, name: String(row.name).slice(0, 120), type: safeDocType(row.type, row.name), size: data.byteLength, uploadedAt: toAppTime(row.uploaded_at), data };
           await putRecords(STORES.documents, [doc]);
           if (kind === 'cv' && checkFor(row.cv_check, doc)) await putRecords(STORES.documents, [{ ...row.cv_check, id: CV_CHECK_ID }]);
         }
@@ -349,6 +353,7 @@ async function run({ confirmMove = askToMove } = {}) {
   }
 
   let state = loadState(user.id);
+  const firstSync = !state;
   if (!state) {
     // First sync for this account on this device: ask before moving existing data in.
     const [apps, profileRecord] = await Promise.all([getAllRecords(STORES.applications), getRecord(STORES.profile, 'me')]);
@@ -370,7 +375,8 @@ async function run({ confirmMove = askToMove } = {}) {
 
     // 2. Apply it here
     const localApps = await getAllRecords(STORES.applications);
-    const plan = planSync({ localApps, remoteRows, deletions: pendingDeletions(), lastPushedAt: state.lastPushedAt });
+    const unsent = pendingUnsent();
+    const plan = planSync({ localApps, remoteRows, deletions: pendingDeletions(), lastPushedAt: state.lastPushedAt, unsent });
     applying = true;
     try {
       if (plan.apply.length) await putRecords(STORES.applications, plan.apply);
@@ -378,8 +384,24 @@ async function run({ confirmMove = askToMove } = {}) {
     } finally {
       applying = false;
     }
-    const localProfile = await getRecord(STORES.profile, 'me');
-    const profileStep = planProfile(localProfile, remoteProfile);
+    let localProfile = await getRecord(STORES.profile, 'me');
+    let profileStep = planProfile(localProfile, remoteProfile);
+    const filled = (profile) => profile && !isProfileEmpty(normalizeProfile(profile));
+    if (firstSync && filled(localProfile) && filled(remoteProfile?.data)) {
+      // First sign-in on a device with its own profile: combine the two rather than
+      // letting one replace the other. The newer one's details come first; the other
+      // only adds what's missing (jobs, education, skills and so on).
+      const remoteNewer = time(remoteProfile.updated_at) > time(localProfile.updatedAt);
+      const [base, extra] = remoteNewer ? [remoteProfile.data, localProfile] : [localProfile, remoteProfile.data];
+      localProfile = { ...mergeIntoProfile(base, extra).profile, updatedAt: new Date().toISOString() };
+      applying = true;
+      try {
+        await putRecords(STORES.profile, [localProfile]);
+      } finally {
+        applying = false;
+      }
+      profileStep = 'push';
+    }
     if (profileStep === 'apply') {
       applying = true;
       try {
@@ -394,6 +416,7 @@ async function run({ confirmMove = askToMove } = {}) {
       await upsert('applications', plan.push.map((row) => ({ user_id: user.id, ...row })), 'user_id,id', token);
       deletionsSent(plan.sentDeletions);
     }
+    unsentSent([...unsent]);
     if (profileStep === 'push') {
       await upsert('profiles', [{ user_id: user.id, data: normalizeProfile(localProfile), updated_at: localProfile.updatedAt }], 'user_id', token);
     }
@@ -433,6 +456,10 @@ function schedule(delay) {
  * brought changes from other devices, so the screen can redraw.
  */
 export function startSync({ onRemoteChanges = () => {} } = {}) {
+  // Another tab synced: use its record of what's been synced.
+  window.addEventListener('storage', (event) => {
+    if (event.key?.startsWith('jt-sync-')) memory.delete(event.key);
+  });
   const runAndReport = async () => {
     const result = await syncNow();
     if (result?.applied > 0) onRemoteChanges(result);
