@@ -57,11 +57,17 @@ const APP_FILES = [
   './vendor/pdfjs/pdf.worker.min.mjs',
 ];
 
+// GitHub Pages lets browsers reuse a file for 10 minutes without asking for a newer
+// one. So the app asks the server every time ('no-cache'): when nothing has changed,
+// the answer is a tiny "not modified", and when something has, the new version shows
+// on the next open. The large readers in vendor/ rarely change and keep normal caching.
+const fresh = (url) => (new URL(url, self.location.href).pathname.includes('/vendor/') ? 'default' : 'no-cache');
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(APP_FILES))
+      .then((cache) => cache.addAll(APP_FILES.map((url) => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting()),
   );
 });
@@ -80,7 +86,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(request)
+    fetch(request, { cache: fresh(request.url) })
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();
