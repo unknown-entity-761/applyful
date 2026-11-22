@@ -156,3 +156,68 @@ $$;
 
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- =====================================================================
+-- Added 22 Nov 2026: CV and LinkedIn files in your account, and analytics.
+-- Run the whole file again in the SQL Editor; everything above is safe to re-run.
+-- =====================================================================
+
+-- ---- Which version of each file is newest, plus the CV check for that CV ----
+-- The files themselves are in the private 'documents' bucket at <user id>/cv and
+-- <user id>/linkedin. A deleted file is kept here as deleted = true, so the deletion
+-- reaches every device.
+
+create table if not exists public.documents (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind text not null check (kind in ('cv', 'linkedin')),
+  name text not null default '',
+  type text not null default '',
+  size integer not null default 0,
+  uploaded_at timestamptz,
+  deleted boolean not null default false,
+  cv_check jsonb,
+  updated_at timestamptz not null,
+  synced_at timestamptz not null default now(),
+  primary key (user_id, kind)
+);
+
+drop trigger if exists documents_touch on public.documents;
+create trigger documents_touch before insert or update on public.documents
+  for each row execute function public.touch_synced_at();
+
+alter table public.documents enable row level security;
+grant select, insert, update, delete on public.documents to authenticated;
+
+drop policy if exists "Own documents" on public.documents;
+create policy "Own documents" on public.documents
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+-- ---- Analytics, only from people who accepted analytics cookies ----
+-- Anonymous: a random device id from the analytics cookie, never a name, email or
+-- account id, and never anything from applications, the profile or files.
+-- Anyone can add an event; nobody can read them through the app (only you, in the
+-- Supabase dashboard).
+
+create table if not exists public.events (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  event text not null check (char_length(event) between 1 and 60),
+  page text check (char_length(page) <= 80),
+  details jsonb not null default '{}'::jsonb check (pg_column_size(details) <= 2000),
+  device_id text check (char_length(device_id) <= 64),
+  app_version text check (char_length(app_version) <= 40),
+  layout text check (layout in ('phone', 'computer')),
+  signed_in boolean not null default false
+);
+
+create index if not exists events_created_at on public.events (created_at);
+
+alter table public.events enable row level security;
+grant insert on public.events to anon, authenticated;
+
+drop policy if exists "Anyone can add an event" on public.events;
+create policy "Anyone can add an event" on public.events
+  for insert to anon, authenticated
+  with check (true);

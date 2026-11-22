@@ -256,6 +256,7 @@ export async function saveProfile(profile) {
 }
 
 export async function deleteProfileAndDocuments() {
+  for (const kind of Object.keys(DOC_KINDS)) if (await getDocument(kind)) markDocumentDeleted(kind);
   // Saved as an empty profile with today's date rather than removed, so sync can
   // tell your other devices it was deleted (an empty, newer profile wins).
   await putRecords(STORES.profile, [{ ...blankProfile(), updatedAt: new Date().toISOString() }]);
@@ -293,10 +294,25 @@ export function getDocument(kind) {
   return getRecord(STORES.documents, kind);
 }
 
+// When a file was removed, so sync can remove it from your account and other devices.
+const deletedMemory = {};
+const deletedKey = (kind) => `jt-doc-deleted-${kind}`;
+
+/** When this device last removed the CV or LinkedIn file ('' if it hasn't). */
+export function documentDeletedAt(kind) {
+  return deletedMemory[kind] ?? getPref(deletedKey(kind), '');
+}
+
+function markDocumentDeleted(kind, at = new Date().toISOString()) {
+  deletedMemory[kind] = at;
+  setPref(deletedKey(kind), at);
+}
+
 export async function saveDocumentFile(kind, file) {
   if (!DOC_KINDS[kind]) throw new Error('Unknown document type');
   if (file.size > MAX_DOC_BYTES) throw new Error('That file is over 10 MB. Try a smaller copy.');
   const data = await file.arrayBuffer();
+  markDocumentDeleted(kind, '');
   await putRecords(STORES.documents, [{
     id: kind,
     name: String(file.name || DOC_KINDS[kind].label).slice(0, 120),
@@ -308,6 +324,7 @@ export async function saveDocumentFile(kind, file) {
 }
 
 export async function removeDocument(kind) {
+  markDocumentDeleted(kind);
   await deleteRecord(STORES.documents, kind);
   if (kind === 'cv') await deleteRecord(STORES.documents, CV_CHECK_ID);
 }

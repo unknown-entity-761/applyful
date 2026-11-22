@@ -67,7 +67,9 @@ Signing in will be optional: the app keeps working without an account, and signi
 
 **Sign-in (built):** Settings → Account → Create an account or Log in (`app/js/auth.js`, `app/js/views/account.js`). It talks to Supabase's sign-in service with plain `fetch`, so there's no extra library. Sign-up asks you to confirm you're 16 or older and agree to the terms and privacy policy (with an optional, unticked box for emails), and Supabase emails a link to confirm the address. Email links come back as `#access_token=…` and are picked up on start-up. Forgot password sends a reset link. You stay logged in until you sign out; the password is never stored on the device. 
 
-**Sync (built):** while signed in, applications and the profile are kept the same on every device and backed up to the account (`app/js/sync.js`). The newest copy of each record wins, by `updatedAt`, as with backups. Each sync fetches only what changed in the account since the last one (the server stamps `synced_at`), applies anything newer, then sends this device's changes; deleted applications are remembered (`store.js`) and sent as `deleted = true`. It runs on sign-in, on start-up, when the app comes back on screen or online, and a few seconds after a change. The first sync for an account on a device that already has data asks before moving it in (Cancel signs out). CV and LinkedIn files aren't synced yet.
+**Sync (built):** while signed in, applications and the profile are kept the same on every device and backed up to the account (`app/js/sync.js`). The newest copy of each record wins, by `updatedAt`, as with backups. Each sync fetches only what changed in the account since the last one (the server stamps `synced_at`), applies anything newer, then sends this device's changes; deleted applications are remembered (`store.js`) and sent as `deleted = true`. It runs on sign-in, on start-up, when the app comes back on screen or online, and a few seconds after a change. The first sync for an account on a device that already has data asks before moving it in (Cancel signs out). CV and LinkedIn files sync too: the files go in the private `documents` bucket (`<user id>/cv`, `<user id>/linkedin`), and a row per file in the `documents` table says which version is newest and carries the CV check for that CV.
+
+**Analytics (with consent):** a cookie banner asks first (`app/js/views/consent.js`); only after "Accept analytics" (or Settings → Analytics cookies) does the app set the `foliofy_id` cookie and send anonymous events (screen names without ids, feature names, app version, layout, signed in or not) to the `events` table in Supabase (`app/js/analytics.js`). The Cookie policy (`legal.js`, `cookies`) lists everything stored.
 
 One-time setup in the Supabase dashboard:
 
@@ -77,7 +79,7 @@ One-time setup in the Supabase dashboard:
 
 ## Preview label
 
-The app is labelled a **preview** for testers: a "Preview" tag next to the name on Home, and "version 3.0 preview" in Settings. Both open or sit next to **What's coming** (Settings → About), which lists what works now and what's planned, so missing features aren't reported as bugs. The text is in `app/js/content/legal.js` (`coming`).
+The app is labelled a **preview** for testers: a "Preview" tag next to the name on Home, and "version 4.0 preview" in Settings. Both open or sit next to **What's coming** (Settings → About), which lists what works now and what's planned, so missing features aren't reported as bugs. The text is in `app/js/content/legal.js` (`coming`).
 
 ## Tests
 

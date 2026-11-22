@@ -4,17 +4,18 @@
 // update them before version 2's online features go live.
 //
 // They describe:
-//   - your applications, profile, files and CV check results, which stay on the device, and
-//   - optional usage data ("Help improve the app" in Settings, off unless switched
-//     on), which is collected to improve the service. See js/analytics.js.
+//   - your applications, profile, files and CV check results, kept on the device, and
+//     in your account too if you're signed in (see js/sync.js), and
+//   - analytics cookies, only with consent (cookie banner, or Settings → Analytics
+//     cookies), to improve your experience. See js/analytics.js.
 //
 // Each page: { title, updated, draft, intro, sections: [{ heading, paragraphs?, list?, after?, table? }] }
 // In a section, `paragraphs` show first, then `list`, then `after`, then `table`.
 
 import { APP_NAME } from '../config.js';
 
-const UPDATED = '21 November 2026';
-const SETTING = 'Profile → menu (three lines) → Help improve the app';
+const UPDATED = '22 November 2026';
+const SETTING = 'Profile → menu (three lines) → Analytics cookies';
 
 export const LEGAL_PAGES = {
   privacy: {
@@ -22,56 +23,61 @@ export const LEGAL_PAGES = {
     updated: UPDATED,
     draft: true,
     intro:
-      'Your applications, profile and files stay on your device. If you agree, the app also shares anonymous usage data with us so we can improve it. You can change your mind at any time.',
+      'Without an account, your applications, profile and files stay on your device. With an account, they’re also kept in your account, so they’re on every device you use. If you accept analytics cookies, we also collect anonymous usage data to improve your experience. You can change your mind at any time.',
     sections: [
       {
         heading: 'Who we are',
         paragraphs: [`${APP_NAME} is made by [your name or company] (“we”). You can contact us at [contact email].`],
       },
       {
-        heading: 'What stays on your device',
+        heading: 'What the app keeps',
         list: [
           'Your applications: company, job title, portal, the email you used to sign up, links, dates, notes and status history.',
           'Your profile: name, headline, location, contact details, summary, experience, education, projects, certifications and skills.',
           'Your CV and LinkedIn files, if you add them.',
-          'CV check results: your score, the suggestions, the lines they quote from your CV, and the ones you chose to ignore.',
+          'CV check results: your score, how many things there are to fix, and the suggestions you chose to ignore.',
           'Preferences, such as light or dark mode and how lists are sorted.',
         ],
-        after: ['All of this is kept in your browser’s storage on this device. We can’t see it, and it isn’t part of the usage data below.'],
+        after: [
+          'Without an account, all of this stays in your browser’s storage on this device, and we can’t see it.',
+          'With an account, it’s also kept in your account (see “If you create an account”). Your device keeps a copy too, so the app works with no signal.',
+          'None of it is part of the analytics data below.',
+        ],
       },
       {
         heading: 'Reading your CV',
         paragraphs: [
-          'The CV check and “Fill in my profile from my CV” read your CV and LinkedIn PDF on your device, using readers that are part of the app. Your files aren’t uploaded or sent to us, and the results stay on this device.',
-          'If your CV is a scanned image, the app can read it with OCR (text recognition), also on your device. The first time, it downloads the OCR engine (about 5 MB) from the same place as the app. Nothing about your CV is sent.',
-          'If you’ve switched on Help improve the app, we only learn that one of these features was used. We never learn what your CV says, what it scored, or what was filled in.',
+          'The CV check and “Fill in my profile from my CV” read your CV and LinkedIn PDF on your device, using readers that are part of the app. Your files aren’t sent anywhere to be read.',
+          'If your CV is a scanned image, the app can read it with OCR (text recognition), also on your device. The first time, it downloads the OCR engine (about 5 MB) from the same place as the app.',
+          'If you’re signed in, the files themselves and your CV check results are kept in your account, like the rest of your data, so they’re on your other devices too.',
+          'If you’ve accepted analytics cookies, we only learn that one of these features was used. We never learn what your CV says, what it scored, or what was filled in.',
         ],
       },
       {
-        heading: 'Usage data we collect to improve the app',
-        paragraphs: ['If you turn on Help improve the app, we collect:'],
+        heading: 'Analytics cookies, to improve your experience',
+        paragraphs: ['If you accept analytics cookies, on the cookie banner or in Settings, we collect:'],
         list: [
-          'Which screens and features you use, and how often. For example, that an application was added or a status was changed, but not what it said.',
-          'Errors and crashes, so we can fix them.',
-          'Your device type, operating system, browser, screen size, language and app version.',
-          'Your approximate country or region, worked out from your internet connection. We don’t keep your full IP address.',
-          'A random ID for your device, so we can count how many people use the app. It isn’t linked to your name or email.',
+          'Which screens and features you use, and when. For example, that the CV check was run or a profile was filled in from a CV, but never what it contained. Screen addresses are recorded without the ids of your applications.',
+          'The app version, and whether you’re using the phone or computer layout.',
+          'Whether you’re signed in, but not who you are.',
+          'A random ID for your device, kept in an analytics cookie for 13 months from your last visit, so we can count how many people use the app and how often they come back. It isn’t linked to your name, email or account.',
         ],
+        after: ['Like any website request, sending this data reveals your IP address to our database provider (below), which may keep it in its own short-term logs. We don’t store it with the analytics data.'],
       },
       {
         heading: 'What we don’t collect',
         list: [
           'The content of your applications or notes, including company names and job titles.',
-          'Your profile details, email address, phone number, CV or LinkedIn files.',
+          'Your profile details, email address, phone number, CV or LinkedIn files, for analytics.',
           'Passwords for any job portal. The app never asks for them.',
         ],
         after: ['If a future feature needs any of this to work better, we’ll ask you separately first. Saying no won’t affect the rest of the app.'],
       },
       {
-        heading: 'How we use usage data',
+        heading: 'How we use analytics data',
         list: [
-          'To find and fix bugs and crashes.',
-          'To learn which features help most, and which are confusing.',
+          'To improve your experience: to learn which features help most, and which are confusing.',
+          'To find where people get stuck, so we can fix it.',
           'To make the app faster and easier to use.',
           'To decide what to build next.',
           'To produce overall statistics, such as how many people use the app each month.',
@@ -80,20 +86,21 @@ export const LEGAL_PAGES = {
       {
         heading: 'Your choice',
         paragraphs: [
-          `Usage data is only collected if you switch it on in ${SETTING}. It’s off until you do. You can switch it off at any time, and we’ll stop collecting usage data from your device straight away.`,
-          'To ask us to delete usage data we already hold, contact us at [contact email].',
+          `Analytics cookies are only used if you accept them on the cookie banner or switch them on in ${SETTING}. Until you choose, nothing is collected. You can switch them off at any time: we stop collecting straight away, and the analytics cookie is removed from your device. Saying no doesn’t affect anything else in the app.`,
+          'To ask us to delete analytics data we already hold, contact us at [contact email].',
         ],
       },
       {
-        heading: 'Who handles usage data',
+        heading: 'Who handles your data',
         paragraphs: [
-          'We use [analytics provider] to collect and store usage data for us. They may only use it to provide that service to us. [Link to their privacy policy, and say which country the data is stored in.]',
+          'Supabase, our database and account provider, stores account data, synced data and analytics data for us on servers in Sydney, Australia. It may only use it to provide that service to us. Only you can read your account data through the app; analytics data can only be read by us. [Link to Supabase’s privacy policy.]',
         ],
       },
       {
         heading: 'How long we keep it',
         paragraphs: [
-          'We keep usage data for [14 months], then delete it. Overall statistics that can’t identify anyone may be kept for longer.',
+          'Account data, including your synced applications, profile and files, is kept until you delete it or your account.',
+          'We keep analytics data for [14 months], then delete it. Overall statistics that can’t identify anyone may be kept for longer.',
         ],
       },
       {
@@ -101,20 +108,24 @@ export const LEGAL_PAGES = {
         list: [
           'Sell your information.',
           'Use your information for advertising.',
-          'Track you across other apps or websites.',
+          'Track you across other apps or websites. Our cookies only work on Foliofy.',
         ],
+      },
+      {
+        heading: 'Cookies',
+        paragraphs: ['Our Cookie policy lists every cookie and what’s stored on your device, and why: Settings → Cookie policy.'],
       },
       {
         heading: 'Hosting',
         paragraphs: [
-          'The company that hosts the app’s files may keep standard server logs, such as IP addresses and the times pages were loaded, to keep the service running and secure. [Name the host and link to its privacy policy.]',
+          'GitHub Pages hosts the app’s files and may keep standard server logs, such as IP addresses and the times pages were loaded, to keep the service running and secure. [Link to GitHub’s privacy statement.]',
         ],
       },
       {
         heading: 'If you create an account',
         paragraphs: [
-          'An account is optional. If you create one, your email address, a securely scrambled copy of your password (never the password itself), when you signed up, and what you agreed to (age, terms and privacy policy, and whether you want emails about Foliofy) are stored by Supabase, our account service, on servers in Sydney, Australia. [Link to Supabase’s privacy policy.]',
-          'While you’re signed in, your applications and profile are also kept in your account, so they appear on every device you sign in on and are backed up. Your CV and LinkedIn files stay on your device for now. If you sign out, everything stays on the device too.',
+          'An account is optional. If you create one, your email address, a securely scrambled copy of your password (never the password itself), when you signed up, and what you agreed to (age, terms and privacy policy, and whether you want emails about Foliofy) are stored by Supabase on servers in Sydney, Australia.',
+          'While you’re signed in, your applications, profile, CV and LinkedIn files and CV check results are kept in your account, so they appear on every device you sign in on and are backed up. Files are kept in private storage that only your account can open. If you sign out, everything stays on the device too.',
           'You can sign out at any time in Settings, Account. To delete your account, contact us at [contact email] until deleting it in the app is added.',
         ],
       },
@@ -127,7 +138,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'Future versions',
         paragraphs: [
-          'Later versions will add optional features that need an online service, such as reading your Gmail, writing cover letters, and an AI review of your CV. Before any of these goes live, we’ll update this policy, and the app will ask for your permission first.',
+          'Later versions will add optional features such as reading your Gmail, writing cover letters, and an AI review of your CV. Before any of these goes live, we’ll update this policy, and the app will ask for your permission first.',
         ],
       },
       {
@@ -141,6 +152,46 @@ export const LEGAL_PAGES = {
     ],
   },
 
+  cookies: {
+    title: 'Cookie policy',
+    updated: UPDATED,
+    draft: true,
+    intro: 'What Foliofy stores on your device, and why. Only analytics cookies need your OK; the rest is needed for the app to work.',
+    sections: [
+      {
+        heading: 'Needed for the app to work',
+        paragraphs: ['These are always on, because the app can’t work without them. They stay on your device and aren’t used to track you.'],
+        table: {
+          columns: ['What', 'Why', 'How long'],
+          rows: [
+            ['Your data (browser storage)', 'Your applications, profile and files, so the app works on this device, even with no signal', 'Until you delete it'],
+            ['Sign-in (browser storage)', 'Keeps you signed in, if you have an account', 'Until you sign out'],
+            ['Settings (browser storage)', 'Light or dark mode, sort order, prompts you’ve dismissed, sync progress', 'Until you clear your browser'],
+            ['foliofy_consent (cookie)', 'Remembers your answer on the cookie banner', '12 months'],
+          ],
+        },
+      },
+      {
+        heading: 'Analytics cookies, to improve your experience',
+        paragraphs: ['Only if you accept them. They help us see how the app is used, so we can improve your experience.'],
+        table: {
+          columns: ['What', 'Why', 'How long'],
+          rows: [
+            ['foliofy_id (cookie)', 'A random ID for your device, so we can count how many people use the app and how often they come back. Not linked to your name, email or account.', '13 months from your last visit'],
+          ],
+        },
+        after: ['What’s collected with it is listed in the Privacy policy, under “Analytics cookies, to improve your experience”.'],
+      },
+      {
+        heading: 'Changing your mind',
+        paragraphs: [`Switch analytics cookies on or off at any time in ${SETTING}. Switching them off removes the analytics cookie straight away.`],
+      },
+      {
+        heading: 'No third-party cookies',
+        paragraphs: ['Foliofy doesn’t use advertising cookies, and no other company sets cookies through the app.'],
+      },
+    ],
+  },
   data: {
     title: 'Data we collect and keep',
     updated: UPDATED,
@@ -154,12 +205,12 @@ export const LEGAL_PAGES = {
           rows: [
             ['Applications', 'Company, job title, portal, login email, links, dates, notes, status history', 'This device, and your account if you’re signed in (Supabase, Sydney)', 'No one; Supabase stores it for us'],
             ['Profile', 'Name, headline, location, contact details, summary, experience, education, projects, certifications, skills', 'This device, and your account if you’re signed in (Supabase, Sydney)', 'No one; Supabase stores it for us'],
-            ['CV and LinkedIn files', 'The files you add', 'This device', 'No one'],
-            ['CV check results', 'Your score, the suggestions and the lines they quote from your CV, and which suggestions you ignored', 'This device', 'No one'],
+            ['CV and LinkedIn files', 'The files you add', 'This device, and your account’s private storage if you’re signed in', 'No one; Supabase stores it for us'],
+            ['CV check results', 'Your score, how many things to fix, and which suggestions you ignored', 'This device, and your account if you’re signed in', 'No one; Supabase stores it for us'],
             ['Preferences', 'Light or dark mode, sort order, dismissed prompts', 'This device', 'No one'],
             ['Backups', 'A copy of your applications, profile, CV and LinkedIn files', 'Wherever you save the file', 'Anyone you give the file to'],
             ['Account (only if you create one)', 'Email address, a scrambled copy of your password, sign-up date, what you agreed to', 'Supabase, in Sydney', 'Supabase, which runs it for us'],
-            ['Usage data (only if you switch it on)', 'Features used, errors, device and browser type, app version, approximate region, a random device ID', '[Analytics provider], for [14 months]', 'Us, and [analytics provider] on our behalf'],
+            ['Analytics (only if you accept analytics cookies)', 'Screens and features used, app version, phone or computer layout, whether you’re signed in, a random device ID', 'Our database (Supabase, Sydney), for [14 months]', 'Only us'],
           ],
         },
       },
@@ -167,7 +218,7 @@ export const LEGAL_PAGES = {
         heading: 'Used to improve the app',
         paragraphs: [
           'Usage data shows us which features work, where people get stuck, and what breaks, so we can fix bugs and build better features. It never includes what you write in the app.',
-          `You choose whether to share it, in ${SETTING}. It’s off until you switch it on.`,
+          `You choose whether to share it, on the cookie banner or in ${SETTING}. Nothing is collected until you accept.`,
         ],
       },
       {
@@ -213,7 +264,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'How we improve the app',
         paragraphs: [
-          'If you switch on Help improve the app, we collect anonymous usage data, such as which features are used and any errors, to fix problems and improve the service. It never includes the content of your applications, profile or files. It’s off until you switch it on.',
+          'If you accept analytics cookies, we collect anonymous usage data, such as which screens and features are used, to improve your experience. It never includes the content of your applications, profile or files. Nothing is collected until you accept.',
         ],
       },
       {
@@ -229,7 +280,7 @@ export const LEGAL_PAGES = {
         list: [
           'Keep the details you enter accurate.',
           'Don’t store passwords in the app. Use a password manager.',
-          'Back up your data, because it’s kept only on your device.',
+          'Back up your data if you don’t have an account, because then it’s kept only on your device.',
           'Check deadlines and requirements directly with employers.',
         ],
       },
@@ -253,7 +304,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'Usage data and feedback',
         paragraphs: [
-          'If you switch on Help improve the app, you allow us to collect and use usage data, as described in the Privacy policy, to maintain and improve the app. You can switch it off at any time.',
+          'If you accept analytics cookies, you allow us to collect and use usage data, as described in the Privacy policy and Cookie policy, to improve your experience of the app. You can switch them off at any time.',
           'If you send us feedback or suggestions, we may use them to improve the app without owing you anything.',
         ],
       },
@@ -292,7 +343,7 @@ export const LEGAL_PAGES = {
         heading: 'What works now',
         list: [
           'A short setup the first time you open the app, to fill in your profile from your CV or by hand.',
-          'An optional account: sign in and your applications and profile are the same on every device you use, and backed up.',
+          'An optional account: sign in and your applications, profile, CV and LinkedIn files are the same on every device you use, and backed up.',
           'Tracking applications: status, portal, the email you used, follow-up dates, notes and history.',
           'Filling in your profile from your CV or LinkedIn PDF, on this device and without AI. Scanned CVs are read with OCR.',
           'Checking your CV: a score, what to fix first and what’s already strong.',
@@ -303,7 +354,7 @@ export const LEGAL_PAGES = {
       },
       {
         heading: 'Coming soon',
-        list: ['Your CV and LinkedIn files kept in your account too, so they’re on every device.'],
+        list: ['Changing the email you sign in with, and deleting your account from inside the app.'],
       },
       {
         heading: 'Later',
@@ -364,13 +415,13 @@ export const LEGAL_PAGES = {
         heading: 'Checking your CV',
         paragraphs: [
           'Go to Profile, add your CV (a PDF or Word .docx file), then tap Check your CV. You’ll see a score, what to fix (most important first) and what’s already strong.',
-          'Tap a suggestion to see the lines in your CV it’s about and how to fix them. If one doesn’t apply to you, tap Ignore this suggestion. Your CV is checked on this device and isn’t uploaded.',
+          'Tap a suggestion to see the lines in your CV it’s about and how to fix them. If one doesn’t apply to you, tap Ignore this suggestion. Your CV is checked on this device. If you’re signed in, the CV and its check are also kept in your account.',
         ],
       },
       {
         heading: 'Backing up',
         paragraphs: [
-          'Your data is kept only on this device. Go to Profile, tap the menu button (three lines), then Backup, restore and storage, and save a backup somewhere safe.',
+          'With an account (Settings, Account), your data is backed up to it automatically. Without one, it’s kept only on this device: go to Profile, tap the menu button (three lines), then Backup, restore and storage, and save a backup somewhere safe.',
         ],
       },
       {
@@ -380,7 +431,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'Does the app collect my data?',
         paragraphs: [
-          `Only if you switch on Help improve the app (${SETTING}). Then it shares anonymous usage data, like which features you use and any errors. It never includes your applications, profile or files.`,
+          `Only what you agree to. Analytics cookies, which share anonymous usage data like which screens you use, are only on if you accept them (${SETTING}). If you create an account, your data is kept in it so it’s on all your devices. Neither ever includes your data in analytics.`,
         ],
       },
       {

@@ -52,17 +52,17 @@ export async function renderSettings(ctx) {
         <div class="panel">
           <label class="switch-row">
             <span class="switch-text">
-              <span class="switch-title">Help improve the app</span>
-              <span class="switch-desc">Share anonymous usage data, like which features you use and any errors. Never your applications, profile or files.</span>
+              <span class="switch-title">Analytics cookies</span>
+              <span class="switch-desc">Help us improve your experience by sharing how you use the app: which screens and features, anonymously. Never your applications, profile or files.</span>
             </span>
             <input type="checkbox" class="switch" role="switch" data-setting="usage" ${hasUsageConsent() && raw('checked')}>
           </label>
-          <p class="hint">Nothing is sent in this test version. Sharing starts once the analytics service is added.</p>
         </div>
         <ul class="menu">
           ${menuRow('#/settings/data', 'database', 'Backup, restore and storage')}
           ${menuRow('#/legal/privacy', 'shield', 'Privacy policy')}
           ${menuRow('#/legal/data', 'info', 'Data we collect and keep')}
+          ${menuRow('#/legal/cookies', 'info', 'Cookie policy')}
         </ul>
       </section>
 
@@ -87,7 +87,7 @@ export async function renderSettings(ctx) {
 
   screen.querySelector('[data-setting="usage"]').addEventListener('change', (event) => {
     setUsageConsent(event.target.checked);
-    showToast(event.target.checked ? 'Thanks for helping improve the app' : 'Usage sharing is off');
+    showToast(event.target.checked ? 'Analytics cookies on. Thanks for helping improve Foliofy.' : 'Analytics cookies off');
   });
 
   mount(screen, ctx);

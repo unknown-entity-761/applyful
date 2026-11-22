@@ -1229,3 +1229,29 @@ details.more p { margin-top: 6px; font-size: 14px; color: var(--text-2); }
 .check.consent input { flex: none; margin-top: 1px; }
 .form-error { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
 .sync-line { font-weight: 600; }
+
+/* ---- Cookie banner: above the tab bar on phones, a card in the corner on computers ---- */
+.consent {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--tabbar-height) + var(--tabbar-gap) + 12px + env(safe-area-inset-bottom));
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--tabbar-shadow);
+  font-size: 15px;
+}
+.consent-title { font-size: 16px; font-weight: 700; }
+.consent-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.consent-link { justify-self: start; font-size: 14px; font-weight: 600; }
+.consent-reading { opacity: 0.97; }
+@media (min-width: 960px) {
+  .consent { left: auto; right: 24px; bottom: 24px; max-width: 420px; }
+}

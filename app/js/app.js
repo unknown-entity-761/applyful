@@ -2,7 +2,7 @@
 // and turns on offline mode.
 
 import * as store from './store.js';
-import { route, start, navigate, refresh } from './router.js';
+import { route, start, navigate, refresh, onRoute } from './router.js';
 import { showToast } from './ui.js';
 import { applyTheme } from './theme.js';
 import { APP_NAME } from './config.js';
@@ -23,6 +23,8 @@ import { renderWelcome } from './views/welcome.js';
 import { needsSetup } from './profile.js';
 import { handleAuthRedirect, currentUser } from './auth.js';
 import { startSync } from './sync.js';
+import { trackPage, setSignedInCheck } from './analytics.js';
+import { showConsentBanner } from './views/consent.js';
 import { renderAccount, renderSignUp, renderLogIn, renderReset, renderNewPassword } from './views/account.js';
 import './install.js';
 
@@ -68,6 +70,10 @@ async function boot() {
   route('/welcome/cv', (_, ctx) => renderProfileImport({ source: 'cv' }, ctx, { setup: true }));
   route('/welcome/form', (_, ctx) => renderProfileEdit(ctx, null, { setup: true }));
 
+  // Analytics (only after someone accepts it on the cookie banner): one page view per screen.
+  setSignedInCheck(() => Boolean(currentUser()));
+  onRoute((path) => trackPage(path));
+
   // An email link (confirming an address, or resetting a password) opens the app with
   // sign-in details in the address: take them, then show the right screen.
   const fromEmail = await handleAuthRedirect();
@@ -89,6 +95,7 @@ async function boot() {
     navigate('/', { replace: true });
   });
   if (fromEmail) reportEmailLink(fromEmail);
+  showConsentBanner();
 
   // Signed in: keep this device and the account in step. Changes from other devices
   // redraw the screen, unless you're in the middle of typing into a form.

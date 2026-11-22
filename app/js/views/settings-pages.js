@@ -5,6 +5,7 @@ import { listApplications, clearAll, isPersisted, storageMode } from '../store.j
 import { exportBackup, importBackup, lastBackupAt } from '../backup.js';
 import { canPromptInstall, promptInstall, isInstalled } from '../install.js';
 import { getProfile, isProfileEmpty, getDocument, deleteProfileAndDocuments } from '../profile.js';
+import { currentUser } from '../auth.js';
 import { subHeader, wireBack } from './components.js';
 
 // ---- Notifications ----
@@ -76,7 +77,9 @@ export async function renderData(ctx) {
     <main class="content">
       <section class="panel">
         <h2 class="panel-title">Backup</h2>
-        <p>Your applications and profile are saved only on this device. Back up now and then, and before you clear your browser or switch phones.</p>
+        ${currentUser()
+          ? html`<p>You’re signed in, so everything is also backed up to your account automatically. A backup file is still handy to keep your own copy.</p>`
+          : html`<p>Your applications and profile are saved only on this device. Back up now and then, and before you clear your browser or switch phones. Or <a href="#/account">create an account</a> to back up automatically.</p>`}
         ${lastBackupAt() ? html`<p class="muted">Last backup: ${formatTimestamp(lastBackupAt())}</p>` : html`<p class="muted">You haven’t backed up on this device yet.</p>`}
         <div class="stack">
           <button type="button" class="btn primary block" data-action="export" ${count === 0 && !hasProfile && raw('disabled')}>

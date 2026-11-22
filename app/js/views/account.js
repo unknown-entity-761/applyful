@@ -35,7 +35,7 @@ export async function renderAccount(ctx) {
           <h2 class="panel-title">${icon('user')} Signed in</h2>
           <p>You’re signed in as <strong>${user.email}</strong>.</p>
           <p class="sync-line" data-sync-status aria-live="polite"></p>
-          <p class="hint">Your applications and profile are kept the same on every device you sign in on, and backed up to your account. CV and LinkedIn files aren’t synced yet, so keep them in your backups.</p>
+          <p class="hint">Your applications, profile, CV and LinkedIn files and CV check are saved in your account, so they’re the same on every device you sign in on. Each device keeps a copy, so the app still works with no signal.</p>
           <div class="stack">
             <button type="button" class="btn block" data-action="sync-now">Sync now</button>
             <button type="button" class="btn block" data-action="sign-out">Sign out</button>

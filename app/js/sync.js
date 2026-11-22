@@ -1,6 +1,7 @@
-// Sync (version 4): when you're signed in, your applications and profile are saved to
-// your account and kept the same on every device you sign in on. That's also the
-// automatic backup. (CV and LinkedIn files come next.)
+// Sync (version 4): when you're signed in, your applications, profile, CV and
+// LinkedIn files and CV check results are saved to your account and kept the same on
+// every device you sign in on. That's also the automatic backup. Each device keeps a
+// working copy, so the app still opens and works with no signal.
 //
 // The newest copy of each record wins, by its updatedAt, just as with backups.
 // A sync:
@@ -19,7 +20,7 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
 import { accessToken, currentUser, signOut } from './auth.js';
 import { STORES, getAllRecords, getRecord, putRecords, deleteRecord, pendingDeletions, deletionsSent } from './store.js';
 import { normalize } from './model.js';
-import { normalizeProfile, isProfileEmpty } from './profile.js';
+import { normalizeProfile, isProfileEmpty, DOC_KINDS, CV_CHECK_ID, documentDeletedAt } from './profile.js';
 import { getPref, setPref } from './prefs.js';
 
 const PAGE = 1000;
@@ -151,6 +152,112 @@ async function upsert(table, rows, conflict, token) {
       prefer: 'resolution=merge-duplicates,return=minimal',
     });
   }
+}
+
+// ---- CV and LinkedIn files ----
+// Files go in the private file store, one folder per person (documents/<user id>/cv).
+// A small row per file in the documents table says which version is newest, and
+// carries the CV check result for that CV.
+
+const MIME_BY_EXTENSION = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+};
+
+const uploadType = (doc) => (Object.values(MIME_BY_EXTENSION).includes(doc.type)
+  ? doc.type
+  : MIME_BY_EXTENSION[String(doc.name).split('.').pop().toLowerCase()] ?? 'application/pdf');
+
+async function files(path, token, { method = 'GET', body, type } = {}) {
+  let response;
+  try {
+    response = await fetch(`${SUPABASE_URL}/storage/v1/object/${path}`, {
+      method,
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${token}`,
+        ...(type ? { 'Content-Type': type, 'x-upsert': 'true' } : {}),
+      },
+      body,
+    });
+  } catch {
+    throw new SyncError(0);
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new SyncError(response.status, String(data.statusCode ?? data.code ?? ''), data.message ?? data.error ?? '');
+  }
+  return method === 'GET' ? response.arrayBuffer() : null;
+}
+
+const checkFor = (check, doc) => (check && doc && time(check.cvUploadedAt) === time(doc.uploadedAt) ? check : null);
+
+/** Brings the CV and LinkedIn files (and the CV check) up to date both ways. */
+async function syncDocuments(user, token) {
+  const rows = await rest('documents?select=kind,name,type,size,uploaded_at,deleted,cv_check,updated_at', token);
+  const remote = new Map(rows.map((row) => [row.kind, row]));
+  let applied = 0;
+  let pushed = 0;
+  for (const kind of Object.keys(DOC_KINDS)) {
+    const local = await getRecord(STORES.documents, kind);
+    const localCheck = kind === 'cv' ? checkFor(await getRecord(STORES.documents, CV_CHECK_ID), local) : null;
+    const row = remote.get(kind);
+    const mine = local ? time(local.uploadedAt) : time(documentDeletedAt(kind));
+    const theirs = row ? time(row.updated_at) : 0;
+    const path = `documents/${user.id}/${kind}`;
+
+    if (theirs > mine) {
+      applying = true;
+      try {
+        if (row.deleted) {
+          if (local) await deleteRecord(STORES.documents, kind);
+          if (kind === 'cv') await deleteRecord(STORES.documents, CV_CHECK_ID);
+        } else {
+          const data = await files(`authenticated/${path}`, token);
+          const doc = { id: kind, name: row.name, type: row.type, size: data.byteLength, uploadedAt: toAppTime(row.uploaded_at), data };
+          await putRecords(STORES.documents, [doc]);
+          if (kind === 'cv' && checkFor(row.cv_check, doc)) await putRecords(STORES.documents, [{ ...row.cv_check, id: CV_CHECK_ID }]);
+        }
+      } finally {
+        applying = false;
+      }
+      applied += 1;
+    } else if (mine > theirs) {
+      if (local) {
+        await files(path, token, { method: 'POST', body: local.data, type: uploadType(local) });
+        await upsert('documents', [{
+          user_id: user.id, kind, name: local.name, type: local.type, size: local.size,
+          uploaded_at: local.uploadedAt, deleted: false, cv_check: localCheck ? { ...localCheck, id: undefined } : null, updated_at: local.uploadedAt,
+        }], 'user_id,kind', token);
+      } else {
+        await files(path, token, { method: 'DELETE' }).catch((error) => { if (error.status !== 404 && error.status !== 400) throw error; });
+        await upsert('documents', [{
+          user_id: user.id, kind, name: '', type: '', size: 0, uploaded_at: documentDeletedAt(kind), deleted: true, cv_check: null, updated_at: documentDeletedAt(kind),
+        }], 'user_id,kind', token);
+      }
+      pushed += 1;
+    } else if (kind === 'cv' && local && row && !row.deleted) {
+      // The same CV everywhere: the newer CV check (score, ignored suggestions) wins.
+      const theirCheck = checkFor(row.cv_check, local);
+      if (theirCheck && time(theirCheck.checkedAt) > time(localCheck?.checkedAt)) {
+        applying = true;
+        try {
+          await putRecords(STORES.documents, [{ ...theirCheck, id: CV_CHECK_ID }]);
+        } finally {
+          applying = false;
+        }
+        applied += 1;
+      } else if (localCheck && time(localCheck.checkedAt) > time(theirCheck?.checkedAt)) {
+        await upsert('documents', [{
+          user_id: user.id, kind, name: row.name, type: row.type, size: row.size,
+          uploaded_at: row.uploaded_at, deleted: false, cv_check: { ...localCheck, id: undefined }, updated_at: row.updated_at,
+        }], 'user_id,kind', token);
+        pushed += 1;
+      }
+    }
+  }
+  return { applied, pushed };
 }
 
 // ---- What each device remembers about each account ----
@@ -291,6 +398,9 @@ async function run({ confirmMove = askToMove } = {}) {
       await upsert('profiles', [{ user_id: user.id, data: normalizeProfile(localProfile), updated_at: localProfile.updatedAt }], 'user_id', token);
     }
 
+    // 4. CV and LinkedIn files, and the CV check
+    const docs = await syncDocuments(user, token);
+
     const newest = remoteRows[remoteRows.length - 1];
     state = {
       lastPulledAt: newest ? newest.synced_at : state.lastPulledAt,
@@ -300,8 +410,8 @@ async function run({ confirmMove = askToMove } = {}) {
     };
     saveState(user.id, state);
     setStatus({ state: 'ok', lastSyncedAt: state.lastSyncedAt, error: '' });
-    const changedHere = plan.apply.length + plan.removeLocal.length + (profileStep === 'apply' ? 1 : 0);
-    return { applied: changedHere, removed: plan.removeLocal.length, pushed: plan.push.length + (profileStep === 'push' ? 1 : 0) };
+    const changedHere = plan.apply.length + plan.removeLocal.length + (profileStep === 'apply' ? 1 : 0) + docs.applied;
+    return { applied: changedHere, removed: plan.removeLocal.length, pushed: plan.push.length + (profileStep === 'push' ? 1 : 0) + docs.pushed };
   } catch (error) {
     if (!(error instanceof SyncError)) console.error(error);
     setStatus({ state: 'error', error: error instanceof SyncError ? error.message : syncMessage(500) });

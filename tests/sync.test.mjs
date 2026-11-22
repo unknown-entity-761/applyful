@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import * as store from '../app/js/store.js';
 import { STORES } from '../app/js/store.js';
 import { normalize } from '../app/js/model.js';
-import { saveProfile, getProfile, deleteProfileAndDocuments } from '../app/js/profile.js';
+import { saveProfile, getProfile, deleteProfileAndDocuments, saveDocumentFile, getDocument, removeDocument, saveCvCheck, getCvCheck } from '../app/js/profile.js';
 import { logIn, signOut, currentUser } from '../app/js/auth.js';
 import { planSync, planProfile, syncNow, forgetSyncState } from '../app/js/sync.js';
 
@@ -82,7 +82,8 @@ test('profile: newest wins, and an unsaved profile is never sent', () => {
 
 // ---- Two devices and a stand-in server ----
 
-const server = { rows: new Map(), profiles: new Map(), clock: Date.parse('2026-11-22T00:00:00Z'), denied: false };
+const server = { rows: new Map(), profiles: new Map(), documents: new Map(), files: new Map(), clock: Date.parse('2026-11-22T00:00:00Z'), denied: false };
+const toPg = (v) => (v ? new Date(Date.parse(v)).toISOString().replace('Z', '+00:00') : v);
 const realFetch = globalThis.fetch;
 
 function json(status, body) {
@@ -92,7 +93,7 @@ function json(status, body) {
 async function fakeSupabase(url, options = {}) {
   const { pathname, searchParams } = new URL(url);
   const method = options.method ?? 'GET';
-  const body = options.body ? JSON.parse(options.body) : undefined;
+  const body = typeof options.body === 'string' ? JSON.parse(options.body) : undefined; // files arrive as bytes
   const userId = 'user-1';
   if (pathname === '/auth/v1/token') return json(200, { access_token: 'token', refresh_token: 'refresh', expires_in: 3600, user: { id: userId, email: 'alex@example.com' } });
   if (pathname === '/auth/v1/logout') return json(204, null);
@@ -117,6 +118,21 @@ async function fakeSupabase(url, options = {}) {
     for (const row of body) server.rows.set(row.id, { ...row, updated_at: new Date(Date.parse(row.updated_at)).toISOString().replace('Z', '+00:00'), synced_at: syncedAt });
     return json(201, null);
   }
+  if (pathname === '/rest/v1/documents' && method === 'GET') return json(200, [...server.documents.values()]);
+  if (pathname === '/rest/v1/documents' && method === 'POST') {
+    for (const row of body) server.documents.set(row.kind, { ...row, uploaded_at: toPg(row.uploaded_at), updated_at: toPg(row.updated_at) });
+    return json(201, null);
+  }
+  const file = pathname.match(/^\/storage\/v1\/object\/(?:authenticated\/)?documents\/user-1\/(cv|linkedin)$/);
+  if (file && method === 'POST') {
+    server.files.set(file[1], new Uint8Array(await new Response(options.body).arrayBuffer()));
+    return json(200, { Key: `documents/user-1/${file[1]}` });
+  }
+  if (file && method === 'GET') return server.files.has(file[1]) ? new Response(server.files.get(file[1])) : json(404, { statusCode: '404', message: 'Object not found' });
+  if (file && method === 'DELETE') {
+    server.files.delete(file[1]);
+    return json(200, []);
+  }
   if (pathname === '/rest/v1/profiles' && method === 'GET') return json(200, [...server.profiles.values()]);
   if (pathname === '/rest/v1/profiles' && method === 'POST') {
     const [row] = body;
@@ -130,6 +146,7 @@ async function newDevice() {
   // Same account, empty device: nothing saved locally and no sync history.
   await store.clearStore(STORES.applications);
   await store.clearStore(STORES.profile);
+  await store.clearStore(STORES.documents);
   store.deletionsSent(store.pendingDeletions());
   forgetSyncState('user-1');
 }
@@ -145,6 +162,8 @@ before(async () => {
 beforeEach(async () => {
   server.rows.clear();
   server.profiles.clear();
+  server.documents.clear();
+  server.files.clear();
   server.denied = false;
   await newDevice();
   await signOut();
@@ -218,4 +237,34 @@ test('when the account storage refuses access, sync says so and keeps everything
   const result = await syncNow({ confirmMove: () => true });
   assert.match(result.error, /isn’t fully set up yet/);
   assert.ok(await store.getApplication('a'), 'nothing on the device was touched');
+});
+
+test('the CV, its check, and removing it reach the other device', async () => {
+  await logIn('alex@example.com', 'pw');
+  const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 1, 2, 3, 250]);
+  await saveDocumentFile('cv', new File([bytes], 'my-cv.pdf', { type: 'application/pdf' }));
+  await saveCvCheck(await getDocument('cv'), { score: 84, label: 'Good', toFix: 2, ignored: new Set(['cliches']) });
+  let result = await syncNow({ confirmMove: () => true });
+  assert.ok(result.pushed >= 1, JSON.stringify(result));
+  assert.deepEqual([...server.files.get('cv')], [...bytes], 'the file is in the private file store');
+  assert.equal(server.documents.get('cv').cv_check.score, 84);
+
+  // Another device: the CV and its check arrive.
+  await newDevice();
+  result = await syncNow({ confirmMove: () => assert.fail('nothing to move') });
+  const cv = await getDocument('cv');
+  assert.equal(cv.name, 'my-cv.pdf');
+  assert.deepEqual([...new Uint8Array(cv.data)], [...bytes]);
+  assert.deepEqual((await getCvCheck(cv)).ignored, ['cliches']);
+
+  // Ignoring another suggestion there updates the check in the account.
+  await saveCvCheck(cv, { score: 88, label: 'Strong', toFix: 1, ignored: new Set(['cliches', 'too-short']) });
+  await syncNow();
+  assert.equal(server.documents.get('cv').cv_check.score, 88);
+
+  // Removing the CV removes it from the account too.
+  await removeDocument('cv');
+  await syncNow();
+  assert.equal(server.documents.get('cv').deleted, true);
+  assert.equal(server.files.has('cv'), false);
 });

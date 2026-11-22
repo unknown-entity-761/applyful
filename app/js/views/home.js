@@ -11,6 +11,7 @@ import { openApplications } from './applications.js';
 import { exportBackup, backupReminderDue, backupReminderSettings, snoozeBackupReminder } from '../backup.js';
 import { isInstalled, canPromptInstall, promptInstall } from '../install.js';
 import { getPref, setPref } from '../prefs.js';
+import { currentUser } from '../auth.js';
 
 const INSTALL_CARD_KEY = 'jt-install-card-dismissed';
 const isPhone = () => window.matchMedia('(pointer: coarse)').matches;
@@ -41,7 +42,8 @@ export async function renderHome(ctx) {
   // safer, and on iPhone the Home Screen app has its own storage), then backing up.
   const showInstall = isPhone() && !isInstalled() && getPref(INSTALL_CARD_KEY, '') !== '1';
   const backupSettings = backupReminderSettings();
-  const showBackup = !showInstall && backupReminderDue(apps, backupSettings);
+  // Signed in, the account is the backup, so no reminder.
+  const showBackup = !showInstall && !currentUser() && backupReminderDue(apps, backupSettings);
 
   const screen = createScreen(html`
     <header class="topbar topbar-large">
@@ -168,5 +170,6 @@ function backupCard(lastBackupAt) {
         <button type="button" class="btn small primary" data-action="backup-now">Back up now</button>
         <button type="button" class="btn small" data-action="snooze-backup">Later</button>
       </div>
+      <p class="hint">Or <a href="#/account">create an account</a>, and they’re backed up automatically.</p>
     </div>`;
 }

@@ -23,7 +23,7 @@ export async function renderWelcome(ctx) {
     <main class="content">
       <section class="panel">
         <h2 class="panel-title">Let’s set up your profile</h2>
-        <p>It’s used to greet you, to check your CV, and later to fill in cover letters. It’s saved only on this device.</p>
+        <p>It’s used to greet you, to check your CV, and later to fill in cover letters. It’s saved on this device, and in your account if you sign in.</p>
         <div class="stack">
           <label class="btn primary block file-btn">
             ${icon('upload')} Upload your CV
@@ -31,7 +31,7 @@ export async function renderWelcome(ctx) {
           </label>
           <a class="btn block" href="#/welcome/form">${icon('pencil')} Fill it in myself</a>
         </div>
-        <p class="hint">A PDF or Word file. It’s read here on your phone, not uploaded anywhere, and you check everything before it’s saved.</p>
+        <p class="hint">A PDF or Word file. It’s read here on your device, and you check everything before it’s saved.</p>
       </section>
       <button type="button" class="link-btn quiet" data-action="skip">Skip for now</button>
     </main>
