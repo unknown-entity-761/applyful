@@ -16,7 +16,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
-import { remindersFor, normalizeNotify, localParts, isSendingTime } from 'https://unknown-entity-761.github.io/foliofy/js/reminders.js';
+import { remindersFor, normalizeNotify, localParts, isSendingTime } from 'https://unknown-entity-761.github.io/applyful/js/reminders.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   webpush.setVapidDetails(
-    Deno.env.get('VAPID_SUBJECT') || 'https://unknown-entity-761.github.io/foliofy/',
+    Deno.env.get('VAPID_SUBJECT') || 'https://unknown-entity-761.github.io/applyful/',
     Deno.env.get('VAPID_PUBLIC_KEY')!,
     Deno.env.get('VAPID_PRIVATE_KEY')!,
   );

@@ -1,8 +1,8 @@
 # Applyful - Application tracker
 
-Live at https://unknown-entity-761.github.io/foliofy/. The app name lives in `app/js/config.js`, `app/index.html` and `app/manifest.webmanifest`.
+Live at https://unknown-entity-761.github.io/applyful/. The app name lives in `app/js/config.js`, `app/index.html` and `app/manifest.webmanifest`.
 
-The app was called Foliofy until 23 Nov 2026. The web address, the GitHub repo and this folder still use the old name; the on-device storage never did (`job-tracker` database, `jt-` preferences), so nothing was lost in the rename. The old `foliofy_consent` and `foliofy_id` cookies move to the new names on first open (`app/js/analytics.js`).
+The app was called Foliofy until 23 Nov 2026. The GitHub repo and web address moved from `foliofy` to `applyful` the same day; the old address (github.io/foliofy/) no longer works, and GitHub Pages can't redirect it. Phones that added the old address to the Home Screen need to add the new one. Saved data, sign-in and the cookie choice carry over, because the browser keeps them per site (unknown-entity-761.github.io), not per address. Only this folder on the computer still uses the old name. The on-device storage never used the app name (`job-tracker` database, `jt-` preferences), so nothing was lost in the rename. The old `foliofy_consent` and `foliofy_id` cookies move to the new names on first open (`app/js/analytics.js`).
 
 A phone-first web app for tracking job applications across Workday, SuccessFactors and other portals. It opens in a phone browser, can be added to the home screen like a normal app, and works offline. Everything is saved on the device; there is no account and no server.
 
@@ -65,7 +65,7 @@ Decided 23 Nov 2026: reminders are web notifications for now (the phone apps' ow
 
 **To switch them on** (Supabase dashboard):
 1. **SQL Editor**: run the whole of `supabase/schema.sql` again (it adds the two notification tables).
-2. **Edge Functions → Secrets**: add `VAPID_PUBLIC_KEY` (the value in `app/js/config.js`), `VAPID_PRIVATE_KEY` (in `supabase/.vapid-private-key.txt`, which is never committed; delete the file afterwards) and `VAPID_SUBJECT` = `https://unknown-entity-761.github.io/foliofy/`.
+2. **Edge Functions → Secrets**: add `VAPID_PUBLIC_KEY` (the value in `app/js/config.js`), `VAPID_PRIVATE_KEY` (in `supabase/.vapid-private-key.txt`, which is never committed; delete the file afterwards) and `VAPID_SUBJECT` = `https://unknown-entity-761.github.io/applyful/`.
 3. **Edge Functions → Deploy a new function → Via Editor**: name `send-reminders`, paste `supabase/functions/send-reminders/index.ts`, deploy, then switch **Enforce JWT verification** off in its Details. (It imports the rules from the live site, so publish the app first.)
 4. **Integrations → Cron → Create job**: `send-reminders`, schedule `*/15 * * * *`, type Supabase Edge Function, POST.
 5. In the app: Settings → Notifications → turn them on → **Send a test notification**.
@@ -114,7 +114,7 @@ Signing in will be optional: the app keeps working without an account, and signi
 One-time setup in the Supabase dashboard:
 
 1. **SQL Editor → New query**: paste `supabase/schema.sql` and run it. It creates the tables, the private file store for CVs, and the rules that let each person see only their own data.
-2. **Authentication → URL Configuration**: Site URL `https://unknown-entity-761.github.io/foliofy/`, and add `http://localhost:5173/**` to Redirect URLs for trying it on this computer.
+2. **Authentication → URL Configuration**: Site URL `https://unknown-entity-761.github.io/applyful/`, and add `http://localhost:5173/**` to Redirect URLs for trying it on this computer.
 3. **Authentication → Sign In / Providers**: switch on **Allow anonymous sign-ins** (for the online copy without an account). Supabase limits new guests to 30 an hour from one internet address.
 4. Google and Apple sign-in come later (they need a Google Cloud project and the paid Apple Developer account).
 
