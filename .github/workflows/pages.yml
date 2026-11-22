@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.second_try.outputs.page_url || steps.first_try.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,5 +42,14 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: app
-      - id: deployment
+      # GitHub sometimes can't find the files it was just given ("No artifacts named
+      # github-pages"), and a second try a little later works. So: try, wait, try once more.
+      - id: first_try
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - name: Wait before trying again
+        if: steps.first_try.outcome == 'failure'
+        run: sleep 45
+      - id: second_try
+        if: steps.first_try.outcome == 'failure'
         uses: actions/deploy-pages@v5
