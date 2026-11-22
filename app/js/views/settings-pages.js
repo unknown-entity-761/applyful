@@ -7,6 +7,7 @@ import { canPromptInstall, promptInstall, isInstalled } from '../install.js';
 import { getProfile, isProfileEmpty, getDocument, deleteProfileAndDocuments } from '../profile.js';
 import { currentUser, dataHome, deletionReach, onlineCopyChoice, setOnlineCopy, onlineUser } from '../auth.js';
 import { subHeader, wireBack } from './components.js';
+import { listLetters, deleteLetter } from '../letters.js';
 
 // ---- Notifications ----
 
@@ -62,12 +63,13 @@ export async function renderNotifications(ctx) {
 // ---- Backup, restore and storage ----
 
 export async function renderData(ctx) {
-  const [apps, persisted, profile, cv, linkedin] = await Promise.all([
+  const [apps, persisted, profile, cv, linkedin, letters] = await Promise.all([
     listApplications(),
     isPersisted(),
     getProfile(),
     getDocument('cv'),
     getDocument('linkedin'),
+    listLetters(),
   ]);
   const count = apps.length;
   const hasProfile = !isProfileEmpty(profile) || Boolean(cv || linkedin);
@@ -123,6 +125,7 @@ export async function renderData(ctx) {
         <div class="stack">
           <button type="button" class="btn danger block" data-action="clear-apps" ${count === 0 && raw('disabled')}>Delete all applications</button>
           <button type="button" class="btn danger-outline block" data-action="clear-profile" ${!hasProfile && raw('disabled')}>Delete profile, CV and LinkedIn files</button>
+          <button type="button" class="btn danger-outline block" data-action="clear-letters" ${letters.length === 0 && raw('disabled')}>Delete all cover letters</button>
         </div>
       </section>
     </main>
@@ -148,6 +151,12 @@ export async function renderData(ctx) {
         if (!window.confirm(`Delete all ${plural(count, 'application')} ${deletionReach()}? This can’t be undone.`)) return;
         await clearAll();
         showToast('All applications deleted');
+        await renderData(ctx);
+        break;
+      case 'clear-letters':
+        if (!window.confirm(`Delete all ${plural(letters.length, 'cover letter')} ${deletionReach()}? This can’t be undone.`)) return;
+        for (const letter of letters) await deleteLetter(letter.id);
+        showToast('Cover letters deleted');
         await renderData(ctx);
         break;
       case 'clear-profile':
@@ -185,6 +194,7 @@ export async function renderData(ctx) {
       if (r.skipped > 0) parts.push(`${r.skipped} skipped`);
       if (r.profileRestored) parts.push('profile restored');
       if (r.filesRestored > 0) parts.push(`${plural(r.filesRestored, 'file')} restored`);
+      if (r.lettersRestored > 0) parts.push(`${plural(r.lettersRestored, 'cover letter')} restored`);
       await renderData(ctx);
       showToast(`Restored: ${parts.join(', ')}`, { duration: 6000 });
     } catch (error) {

@@ -48,6 +48,7 @@ export async function renderApplications(ctx, { pane = false } = {}) {
         </header>`
       : html`<header class="topbar topbar-large">
           <h1 class="topbar-title" tabindex="-1">Applications</h1>
+          <a class="btn small primary header-action" href="#/new">${icon('plus')} Add<span class="visually-hidden"> application</span></a>
         </header>`}
     <main class="content">
       ${apps.length === 0 ? emptyState() : html`

@@ -21,6 +21,7 @@ import { renderSettings } from './views/settings.js';
 import { renderNotifications, renderData, renderInstall } from './views/settings-pages.js';
 import { renderLegal } from './views/legal.js';
 import { renderEmailSettings } from './views/email.js';
+import { renderLetters, renderLetterEditor } from './views/letters.js';
 import { renderWelcome } from './views/welcome.js';
 import { needsSetup } from './profile.js';
 import { handleAuthRedirect, currentUser } from './auth.js';
@@ -47,6 +48,10 @@ async function boot() {
   route('/', (_, ctx) => renderHome(ctx));
   route('/applications', (_, ctx) => (isWide() ? renderJobsStart(ctx) : renderApplications(ctx)));
   route('/activity', (_, ctx) => renderActivity(ctx));
+  route('/letters', (_, ctx) => renderLetters(ctx));
+  route('/letters/new', (_, ctx) => renderLetterEditor({}, ctx));
+  route('/letters/new/:appId', (params, ctx) => renderLetterEditor({ appId: params.appId }, ctx));
+  route('/letters/:id', (params, ctx) => renderLetterEditor({ id: params.id }, ctx));
   route('/profile', (_, ctx) => renderProfile(ctx));
   // Pages opened from the tabs
   route('/new', (_, ctx) => renderForm({}, ctx));
@@ -113,7 +118,7 @@ async function boot() {
     askOnlineCopy: showOnlineCopyQuestion,
     onRemoteChanges: () => {
       const path = location.hash.replace(/^#/, '');
-      const editing = /^\/(new|a\/[^/]+\/edit|profile\/(edit|import)|cv-check|welcome|account)/.test(path);
+      const editing = /^\/(new|a\/[^/]+\/edit|profile\/(edit|import)|cv-check|welcome|account|letters\/)/.test(path);
       if (!editing) refresh();
     },
   });

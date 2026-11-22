@@ -6,7 +6,7 @@
 // GitHub also runs before every publish. Don't edit them by hand. The cache name
 // changes whenever a file changes, so phones pick up each new version.
 
-const CACHE = 'foliofy-0bd06b2d84cd';
+const CACHE = 'foliofy-686fe97cc562';
 
 const APP_FILES = [
   './',
@@ -33,6 +33,7 @@ const APP_FILES = [
   './js/email/import.js',
   './js/email/rules.js',
   './js/install.js',
+  './js/letters.js',
   './js/model.js',
   './js/prefs.js',
   './js/profile.js',
@@ -54,6 +55,7 @@ const APP_FILES = [
   './js/views/form.js',
   './js/views/home.js',
   './js/views/legal.js',
+  './js/views/letters.js',
   './js/views/profile-edit.js',
   './js/views/profile-import.js',
   './js/views/profile.js',

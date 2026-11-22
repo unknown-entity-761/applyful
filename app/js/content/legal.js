@@ -38,6 +38,7 @@ export const LEGAL_PAGES = {
           'Your profile: name, headline, location, contact details, summary, experience, education, projects, certifications and skills.',
           'Your CV and LinkedIn files, if you add them, and your earlier CVs (the newest 10), so you can see what you sent each employer.',
           'CV check results: your score, how many things there are to fix, and the suggestions you chose to ignore.',
+          'Cover letters you write or paste, and which applications each is linked to.',
           'Preferences, such as light or dark mode and how lists are sorted.',
         ],
         after: [
@@ -228,10 +229,11 @@ export const LEGAL_PAGES = {
             ['Profile', 'Name, headline, location, contact details, summary, experience, education, projects, certifications, skills', 'This device, plus your account or online copy (Supabase, Sydney)', 'No one; Supabase stores it for us'],
             ['CV and LinkedIn files', 'The files you add, and your earlier CVs (the newest 10)', 'This device, plus private storage in your account or online copy', 'No one; Supabase stores it for us'],
             ['CV check results', 'Your score, how many things to fix, and which suggestions you ignored', 'This device, plus your account or online copy', 'No one; Supabase stores it for us'],
+            ['Cover letters', 'The letters you write or paste, their company and job title, and the applications they’re linked to', 'This device, plus your account or online copy', 'No one; Supabase stores it for us'],
             ['Preferences', 'Light or dark mode, sort order, dismissed prompts', 'This device', 'No one'],
             ['Backups', 'A copy of your applications, profile, CV and LinkedIn files', 'Wherever you save the file', 'Anyone you give the file to'],
             ['From your email (only if you connect Gmail)', 'Read on your device. Saved on applications: company, job title, job number, portal, status, the email you applied with, a link to the email, and recruiter contact details', 'With your applications', 'No one; your emails never reach our server'],
-            ['Online copy (only if you choose one, without an account)', 'The four rows above, under a random ID instead of an account (no email address or password)', 'Supabase, in Sydney, until you turn it off or 12 months unused', 'Supabase, which runs it for us'],
+            ['Online copy (only if you choose one, without an account)', 'The rows above, under a random ID instead of an account (no email address or password)', 'Supabase, in Sydney, until you turn it off or 12 months unused', 'Supabase, which runs it for us'],
             ['Account (only if you create one)', 'Email address, a scrambled copy of your password, sign-up date, what you agreed to', 'Supabase, in Sydney', 'Supabase, which runs it for us'],
             ['Analytics (only if you accept analytics cookies)', 'Screens and features used, app version, phone or computer layout, whether you’re signed in, a random device ID', 'Our database (Supabase, Sydney), for [14 months]', 'Only us'],
           ],
@@ -372,6 +374,7 @@ export const LEGAL_PAGES = {
           'Filling in your profile from your CV or LinkedIn PDF, on this device and without AI. Scanned CVs are read with OCR.',
           'Checking your CV: a score, what to fix first and what’s already strong.',
           'A CV history: your earlier CVs are kept with their CV check score, and each application can say which CV you sent.',
+          'Cover letters in one place (the Letters tab), each linked to the applications you sent it with, with a template to start from.',
           'Adding a follow-up date to your calendar, with a reminder on the day.',
           'Backing up to a file (including your CV) and restoring it, on this phone or a new one.',
         ],
@@ -450,6 +453,13 @@ export const LEGAL_PAGES = {
         paragraphs: [
           'Connect Gmail in Settings → Gmail, then tap Check Gmail now on Activity. A confirmation email adds the application; later emails move it on (assessment, interview, offer, rejection), never backwards. Recruiters who write are saved as contacts.',
           'Every change is listed on Activity with Undo. An email that could belong to more than one application, or to none, waits under Needs a look: link it, add it as a new application, or mark it as not a job email.',
+        ],
+      },
+      {
+        heading: 'Cover letters',
+        paragraphs: [
+          'The Letters tab keeps every cover letter you write or paste. Link each one to the applications you sent it with; an application shows its letters, and Write a cover letter there starts one for that job.',
+          'Start from a template to get a first draft with your details and the job’s; the parts only you can write are in [square brackets]. Copy the letter, download it for Word, or print it or save it as a PDF. Writing letters with AI comes later.',
         ],
       },
       {

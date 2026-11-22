@@ -363,3 +363,36 @@ $$;
 drop trigger if exists applications_limit on public.applications;
 create trigger applications_limit before insert on public.applications
   for each row execute function public.applications_limit();
+
+-- =====================================================================
+-- Added 22 Nov 2026 (version 6): cover letters.
+-- =====================================================================
+
+-- One row per cover letter; `data` is the app's own record (company, job title, the
+-- letter, which applications it's linked to). Deleted ones are kept as deleted = true.
+create table if not exists public.cover_letters (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null check (char_length(id) between 1 and 64),
+  data jsonb not null check (pg_column_size(data) <= 100000),
+  updated_at timestamptz not null,
+  deleted boolean not null default false,
+  synced_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+drop trigger if exists cover_letters_touch on public.cover_letters;
+create trigger cover_letters_touch before insert or update on public.cover_letters
+  for each row execute function public.touch_synced_at();
+
+drop trigger if exists cover_letters_0_keep_newest on public.cover_letters;
+create trigger cover_letters_0_keep_newest before update on public.cover_letters
+  for each row execute function public.keep_newest();
+
+alter table public.cover_letters enable row level security;
+grant select, insert, update, delete on public.cover_letters to authenticated;
+
+drop policy if exists "Own cover letters" on public.cover_letters;
+create policy "Own cover letters" on public.cover_letters
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));

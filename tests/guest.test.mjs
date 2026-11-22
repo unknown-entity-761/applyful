@@ -92,7 +92,7 @@ globalThis.fetch = async (url, options = {}) => {
     for (const row of body) server.rows.set(`${who}/${row.id}`, { ...row, synced_at: new Date(server.clock).toISOString() });
     return json(201, null);
   }
-  if (['/rest/v1/profiles', '/rest/v1/documents', '/rest/v1/cv_versions'].includes(pathname)) return json(method === 'GET' ? 200 : 201, method === 'GET' ? [] : null);
+  if (['/rest/v1/profiles', '/rest/v1/documents', '/rest/v1/cv_versions', '/rest/v1/cover_letters'].includes(pathname)) return json(method === 'GET' ? 200 : 201, method === 'GET' ? [] : null);
   if (pathname === '/storage/v1/object/list/documents') return json(200, []);
   return json(404, { message: `No stand-in for ${method} ${pathname}` });
 };

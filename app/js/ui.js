@@ -88,6 +88,7 @@ const ICON_PATHS = {
   jobs: '<rect class="fill" x="3" y="7" width="18" height="13" rx="3"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>',
   bell: '<path class="fill" d="M6 9a6 6 0 0 1 12 0c0 4.5 1.5 6.5 2.5 7.5h-17C4.5 15.5 6 13.5 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   user: '<circle class="fill" cx="12" cy="8" r="4"/><path class="fill" d="M4 21a8 8 0 0 1 16 0z"/>',
+  letter: '<path class="fill" d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4M8.5 12h7M8.5 16h5"/>',
 };
 
 export function icon(name) {

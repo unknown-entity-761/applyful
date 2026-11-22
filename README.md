@@ -57,6 +57,10 @@ The PDF reader is [pdf.js](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2
 
 The first time the app opens on a device with nothing saved, it starts at **#/welcome**: upload a CV (read on the device, then the profile form opens with what was found highlighted) or fill it in by hand. Only the first name is required, nothing is saved until Confirm, and "Skip for now" goes to Home. When accounts arrive, this runs straight after signing up. Code: `app/js/views/welcome.js`, plus a `setup` option in `profile-import.js` and `profile-edit.js`.
 
+### Cover letters and the CV check page (version 6)
+
+**Letters** replaced **Add** in the phone's bottom bar (decided 22 Nov 2026); "+ Add" is now at the top of Home and Jobs, and the computer's side menu has Cover letters and CV check. `app/js/letters.js` keeps letters in their own IndexedDB store (`letters`, database version 3): company, job title, the letter, and the applications it's linked to. `app/js/views/letters.js` is the Letters tab (newest first, search by company, title, linked application or words) and the editor: link applications, **Start from a template** (your profile and the job, with [prompts] for the parts only you can write; no AI, which is version 5), copy, download for Word (an HTML .doc), print or save as PDF, use as a starting point, delete. Applications show their letters with "Write a cover letter". Letters sync through the `cover_letters` table (`syncLetters` in `sync.js`) and are in backups. The CV check page (`cv-check.js`) now shows **Your scores**: the current CV's score next to the scores earlier CVs had (from the CV history).
+
 ### Email import (version 5, built first)
 
 Settings → Gmail connects Gmail **read-only** (`app/js/email/gmail.js`), using Google's own sign-in window (Google Identity Services, loaded only on the Gmail screens). Email is read on the device, straight from Google; nothing from it reaches Supabase except what's saved on applications. The access token lasts about an hour and lives only in memory.

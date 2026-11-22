@@ -52,6 +52,7 @@ export async function renderHome(ctx) {
         <h1 class="topbar-title" tabindex="-1">${greeting}</h1>
         ${!firstName && !askForName && html`<a class="welcome-link" href="#/profile/edit">Add your name</a>`}
       </div>
+      <a class="btn small primary header-action phone-only" href="#/new">${icon('plus')} Add<span class="visually-hidden"> application</span></a>
     </header>
     <main class="content">
       ${askForName && html`

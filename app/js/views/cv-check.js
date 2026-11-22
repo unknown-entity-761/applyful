@@ -1,10 +1,12 @@
 // CV check (version 3): reads your CV on this device, then lists what to fix,
-// most important first, and what's already strong. Opened from the Profile tab.
+// most important first, and what's already strong. Opened from Profile, and from the
+// side menu on a computer (version 6, its own page), with your scores across CV
+// versions from the CV history.
 // The CV is read and checked on the device (js/cv/extract.js and js/cv/rules.js).
 // If you're signed in, the saved CV and its check are also kept in your account (sync.js).
 
-import { html, raw, icon, createScreen, mount, showToast, plural } from '../ui.js';
-import { DOC_KINDS, MAX_DOC_BYTES, getProfile, getDocument, saveDocumentFile, getCvCheck, saveCvCheck } from '../profile.js';
+import { html, raw, icon, createScreen, mount, showToast, plural, formatTimestamp } from '../ui.js';
+import { DOC_KINDS, MAX_DOC_BYTES, getProfile, getDocument, saveDocumentFile, getCvCheck, saveCvCheck, listCvVersions } from '../profile.js';
 import { extractCv, CvReadError, readErrorMessage } from '../cv/extract.js';
 import { checkCv, scoreCv, SEVERITIES } from '../cv/rules.js';
 import { track } from '../analytics.js';
@@ -15,7 +17,7 @@ import { subHeader, wireBack } from './components.js';
 const NOT_ON_CV = new Set(['mismatch', 'missing-skills']);
 
 export async function renderCvCheck(ctx) {
-  const [cv, linkedin, profile] = await Promise.all([getDocument('cv'), getDocument('linkedin'), getProfile()]);
+  const [cv, linkedin, profile, versions] = await Promise.all([getDocument('cv'), getDocument('linkedin'), getProfile(), listCvVersions()]);
   if (!cv) {
     showAddCv(ctx);
     return;
@@ -23,7 +25,7 @@ export async function renderCvCheck(ctx) {
 
   mount(loadingScreen(cv.name), ctx);
   const [saved, outcome] = await Promise.all([getCvCheck(cv), runCheck(cv.data, cv.name, linkedin, profile)]);
-  const state = { cv, linkedin, profile, file: cv, other: null, outcome, ignored: new Set(saved?.ignored ?? []) };
+  const state = { cv, linkedin, profile, versions, file: cv, other: null, outcome, ignored: new Set(saved?.ignored ?? []) };
   await remember(state);
   showResult(state, ctx);
 }
@@ -206,6 +208,8 @@ function resultBody(state) {
     <p class="privacy-note">${icon('info')} The score is a guide to how easily job portals and recruiters can read your CV, not a prediction of whether you’ll get the job. What works best differs by country and industry.</p>
     <p class="privacy-note">${icon('shield')} Checked on this device with ${result.checks} checks.${dataHome() === 'device' ? ' Your CV wasn’t uploaded.' : ''}</p>
 
+    ${!state.other && !unreadable && scoresOverTime(state, score)}
+
     ${active.length > 0 && html`
       <section class="group" aria-labelledby="fix-heading">
         <h2 class="group-title" id="fix-heading">To fix, most important first</h2>
@@ -243,6 +247,32 @@ function resultBody(state) {
         <li>Checking your CV against a job you want</li>
       </ul>
       <p class="hint">These need the app’s online AI service, which isn’t switched on yet. Your CV will only be sent to it if you agree.</p>
+    </section>`;
+}
+
+/** Your current score next to the scores your earlier CVs had (from the CV history). */
+function scoresOverTime(state, score) {
+  const earlier = (state.versions ?? []).filter((version) => version.check && Number.isFinite(version.check.score));
+  if (earlier.length === 0) return '';
+  const change = score - earlier[0].check.score;
+  const trend = change > 0 ? `Up ${plural(change, 'point')} on your last CV` : change < 0 ? `Down ${plural(-change, 'point')} on your last CV` : 'The same as your last CV';
+  const row = (name, when, value) => html`
+    <li class="score-row">
+      <span class="score-name">${name} <span class="muted">· ${when}</span></span>
+      <span class="score-value">${value}<span class="visually-hidden"> out of 100</span></span>
+      <span class="score-bar" aria-hidden="true"><span style="width: ${Math.max(0, Math.min(100, value))}%"></span></span>
+    </li>`;
+  return html`
+    <section class="group" aria-labelledby="scores-heading">
+      <h2 class="group-title" id="scores-heading">Your scores</h2>
+      <div class="panel">
+        <p><strong>${trend}.</strong></p>
+        <ul class="score-list">
+          ${row(state.cv.name, 'now', score)}
+          ${earlier.slice(0, 5).map((version) => row(version.name, `added ${formatTimestamp(version.addedAt)}`, version.check.score))}
+        </ul>
+        <p class="hint">Earlier CVs keep the score they had when you replaced them. <a href="#/profile/cv-history">CV history</a></p>
+      </div>
     </section>`;
 }
 

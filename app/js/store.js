@@ -1,24 +1,25 @@
 // Data layer: the only file that reads or writes saved data.
 //
 // Everything is kept in IndexedDB, a database built into the browser, on this
-// device only. It holds three collections:
+// device only. It holds four collections:
 //   applications  every job application
 //   profile       your profile (one record, id 'me')
-//   documents     your CV and LinkedIn files (ids 'cv' and 'linkedin')
+//   documents     your CV and LinkedIn files (ids 'cv' and 'linkedin'), earlier CVs
+//   letters       your cover letters (version 6)
 // In version 2 this file can also talk to an online service, and the screens
 // won't need to change, because they only use the functions exported here.
 
 import { getPref, setPref } from './prefs.js';
 
 const DB_NAME = 'job-tracker';
-const DB_VERSION = 2; // 1 = applications only; 2 adds profile and documents
+const DB_VERSION = 3; // 1 = applications only; 2 adds profile and documents; 3 adds letters
 
-export const STORES = { applications: 'applications', profile: 'profile', documents: 'documents' };
+export const STORES = { applications: 'applications', profile: 'profile', documents: 'documents', letters: 'letters' };
 
 let mode = 'none'; // 'indexeddb' | 'memory'
 let dbPromise = null;
 // Only used if the browser blocks IndexedDB (some private windows).
-const memory = { applications: new Map(), profile: new Map(), documents: new Map() };
+const memory = { applications: new Map(), profile: new Map(), documents: new Map(), letters: new Map() };
 
 const copy = (value) => (typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value)));
 
@@ -40,6 +41,7 @@ function openDb() {
       }
       if (!db.objectStoreNames.contains(STORES.profile)) db.createObjectStore(STORES.profile, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(STORES.documents)) db.createObjectStore(STORES.documents, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(STORES.letters)) db.createObjectStore(STORES.letters, { keyPath: 'id' });
     };
     request.onsuccess = () => {
       const db = request.result;

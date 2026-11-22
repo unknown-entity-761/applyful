@@ -20,6 +20,8 @@ import {
 import { getApplication, saveApplication, deleteApplication } from '../store.js';
 import { findCv, openFile } from '../profile.js';
 import { gmailLink, gmailAddress } from '../email/gmail.js';
+import { listLetters, lettersFor } from '../letters.js';
+import { lettersPanel } from './letters.js';
 import { STATUSES, statusInfo, withStatus, isOpen, isFollowUpDue, followUpText } from '../model.js';
 import { back, refresh } from '../router.js';
 import { googleCalendarUrl, openCalendarFile } from '../calendar.js';
@@ -36,6 +38,7 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
   const postingUrl = safeHttpUrl(app.postingUrl);
   const timeline = [...app.statusHistory].reverse();
   const cvSent = await findCv(app.cvVersionId);
+  const letters = lettersFor(app.id, await listLetters());
 
   const screen = createScreen(html`
     <header class="topbar">
@@ -99,6 +102,8 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
             </div>
           </div>`}
       </section>
+
+      ${lettersPanel(app, letters)}
 
       ${(app.contacts ?? []).length > 0 && html`
         <section class="panel">

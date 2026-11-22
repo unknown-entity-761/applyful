@@ -82,7 +82,7 @@ test('profile: newest wins, and an unsaved profile is never sent', () => {
 
 // ---- Two devices and a stand-in server ----
 
-const server = { rows: new Map(), profiles: new Map(), documents: new Map(), versions: new Map(), files: new Map(), clock: Date.parse('2026-11-22T00:00:00Z'), denied: false };
+const server = { rows: new Map(), profiles: new Map(), documents: new Map(), versions: new Map(), letters: new Map(), files: new Map(), clock: Date.parse('2026-11-22T00:00:00Z'), denied: false };
 const toPg = (v) => (v ? new Date(Date.parse(v)).toISOString().replace('Z', '+00:00') : v);
 const realFetch = globalThis.fetch;
 
@@ -123,6 +123,11 @@ async function fakeSupabase(url, options = {}) {
     for (const row of body) server.documents.set(row.kind, { ...row, uploaded_at: toPg(row.uploaded_at), updated_at: toPg(row.updated_at) });
     return json(201, null);
   }
+  if (pathname === '/rest/v1/cover_letters' && method === 'GET') return json(200, [...server.letters.values()]);
+  if (pathname === '/rest/v1/cover_letters' && method === 'POST') {
+    for (const row of body) server.letters.set(row.id, { ...row, updated_at: toPg(row.updated_at) });
+    return json(201, null);
+  }
   if (pathname === '/rest/v1/cv_versions' && method === 'GET') return json(200, [...server.versions.values()]);
   if (pathname === '/rest/v1/cv_versions' && method === 'POST') {
     for (const row of body) server.versions.set(row.id, { ...row, added_at: toPg(row.added_at), updated_at: toPg(row.updated_at) });
@@ -152,6 +157,7 @@ async function newDevice() {
   await store.clearStore(STORES.applications);
   await store.clearStore(STORES.profile);
   await store.clearStore(STORES.documents);
+  await store.clearStore(STORES.letters);
   store.deletionsSent(store.pendingDeletions());
   forgetSyncState('user-1');
 }
@@ -169,6 +175,7 @@ beforeEach(async () => {
   server.profiles.clear();
   server.documents.clear();
   server.versions.clear();
+  server.letters.clear();
   server.files.clear();
   server.denied = false;
   await newDevice();
@@ -437,4 +444,31 @@ test('a different CV in the account is kept in the CV history when this device�
   assert.equal(server.documents.get('cv').name, 'this-device.pdf');
   assert.deepEqual((await listCvVersions()).map((v) => v.name), ['in-account.pdf'], 'not lost: it’s an earlier CV now');
   assert.equal([...server.versions.values()][0]?.name, 'in-account.pdf', 'and in the account’s history');
+});
+
+// ---- Cover letters (version 6) ----
+
+test('cover letters sync: written on one device, edited and deleted on another', async () => {
+  const { saveLetter, listLetters, deleteLetter, getLetter } = await import('../app/js/letters.js');
+  await logIn('alex@example.com', 'pw');
+  const letter = await saveLetter({ company: 'Contoso', jobTitle: 'Data Analyst', body: 'Dear Hiring Manager,\n\nHello.', appIds: ['a'] });
+  await syncNow({ confirmMove: () => true });
+  assert.equal(server.letters.get(letter.id).data.company, 'Contoso');
+
+  await newDevice();
+  await syncNow();
+  const there = await getLetter(letter.id);
+  assert.equal(there.body, 'Dear Hiring Manager,\n\nHello.');
+  assert.deepEqual(there.appIds, ['a']);
+
+  await saveLetter({ ...there, body: 'Edited on the laptop.' });
+  await syncNow();
+  assert.equal(server.letters.get(letter.id).data.body, 'Edited on the laptop.');
+
+  await deleteLetter(letter.id);
+  await syncNow();
+  assert.equal(server.letters.get(letter.id).deleted, true);
+  await newDevice();
+  await syncNow();
+  assert.equal((await listLetters()).length, 0, 'deleted everywhere');
 });

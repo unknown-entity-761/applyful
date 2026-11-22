@@ -8,7 +8,7 @@ import { back } from '../router.js';
 const TABS = [
   { id: 'home', href: '#/', label: 'Home', icon: 'home' },
   { id: 'applications', href: '#/applications', label: 'Jobs', icon: 'jobs' },
-  { id: 'add', href: '#/new', label: 'Add', icon: 'plus', extra: ' application' },
+  { id: 'letters', href: '#/letters', label: 'Letters', icon: 'letter', extra: ': cover letters' },
   { id: 'activity', href: '#/activity', label: 'Activity', icon: 'bell' },
   { id: 'profile', href: '#/profile', label: 'Profile', icon: 'user' },
 ];

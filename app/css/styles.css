@@ -874,6 +874,26 @@ label.btn:focus-within { outline: 3px solid var(--brand); outline-offset: 2px; }
 details.more summary { color: var(--brand); font-size: 14px; font-weight: 600; cursor: pointer; }
 details.more p { margin-top: 6px; font-size: 14px; color: var(--text-2); }
 
+/* ---- Cover letters (version 6) ---- */
+
+.header-action { flex: none; }
+.letter-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.letter-card { display: grid; gap: 3px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: inherit; text-decoration: none; }
+.letter-card:active { background: var(--surface-2); }
+.letter-card-title { font-size: 16px; font-weight: 700; }
+.letter-card-meta { font-size: 14px; color: var(--text-2); }
+.checklist { display: grid; gap: 4px; max-height: 260px; margin-top: 8px; overflow-y: auto; }
+.checklist .check { font-weight: 500; }
+.letter-links { display: grid; gap: 8px; margin: 0 0 4px; padding: 0; list-style: none; }
+.link-apps summary { font-size: 15px; }
+#f-body { min-height: 320px; line-height: 1.5; }
+.score-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.score-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; }
+.score-name { min-width: 0; overflow-wrap: anywhere; font-size: 15px; }
+.score-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.score-bar { grid-column: 1 / -1; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.score-bar span { display: block; height: 100%; border-radius: 4px; background: var(--brand); }
+
 /* ---- Email import (version 5) ---- */
 
 .plain-list { display: grid; gap: 6px; margin: 0; padding-left: 20px; }
@@ -1271,5 +1291,6 @@ details.more p { margin-top: 6px; font-size: 14px; color: var(--text-2); }
 .consent-link { justify-self: start; font-size: 14px; font-weight: 600; }
 .consent-reading { opacity: 0.97; }
 @media (min-width: 960px) {
+  .phone-only { display: none !important; }
   .consent { left: auto; right: 24px; bottom: 24px; max-width: 420px; }
 }

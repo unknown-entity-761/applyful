@@ -16,6 +16,8 @@ const LINKS = [
   { id: 'home', href: '#/', label: 'Home', icon: 'home' },
   { id: 'applications', href: '#/applications', label: 'Jobs', icon: 'jobs' },
   { id: 'add', href: '#/new', label: 'Add application', icon: 'plus' },
+  { id: 'letters', href: '#/letters', label: 'Cover letters', icon: 'letter' },
+  { id: 'cvcheck', href: '#/cv-check', label: 'CV check', icon: 'check' },
   { id: 'activity', href: '#/activity', label: 'Activity', icon: 'bell' },
   { id: 'profile', href: '#/profile', label: 'Profile', icon: 'user' },
 ];
@@ -27,7 +29,9 @@ export function sectionOf(path) {
   if (path === '/applications' || path.startsWith('/a/')) return 'applications';
   if (path === '/new') return 'add';
   if (path === '/activity') return 'activity';
-  if (path.startsWith('/profile') || path === '/cv-check') return 'profile';
+  if (path.startsWith('/letters')) return 'letters';
+  if (path === '/cv-check') return 'cvcheck';
+  if (path.startsWith('/profile')) return 'profile';
   if (path.startsWith('/settings') || path.startsWith('/legal/') || path.startsWith('/account')) return 'settings';
   return 'home';
 }

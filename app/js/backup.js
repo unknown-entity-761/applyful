@@ -1,6 +1,6 @@
 // Backup and restore: saves every application, your profile, your CV and LinkedIn
-// files, your last CV check and your earlier CVs (CV history) to a .json file, and
-// loads one back. Restoring
+// files, your last CV check, your earlier CVs (CV history) and your cover letters
+// to a .json file, and loads one back. Restoring
 // merges: new applications are added, and for ones you already have, whichever copy
 // was changed most recently wins. The same goes for the profile and the files.
 //
@@ -13,6 +13,7 @@ import {
   listCvVersions, versionRecordId, archiveCv, cvVersionIdOf, keepNewestCvVersions, markDocumentDeleted,
 } from './profile.js';
 import { getPref, setPref } from './prefs.js';
+import { listLetters, normalizeLetter } from './letters.js';
 import { todayISO } from './ui.js';
 import { APP_NAME } from './config.js';
 
@@ -98,10 +99,11 @@ function versionFromBackup(item) {
 
 /** Everything a backup file holds. */
 export async function buildBackup() {
-  const [applications, profile, versions, ...saved] = await Promise.all([
+  const [applications, profile, versions, letters, ...saved] = await Promise.all([
     listApplications(),
     getProfile(),
     listCvVersions(),
+    listLetters(),
     ...Object.keys(DOC_KINDS).map((kind) => getRecord(STORES.documents, kind)),
   ]);
   const files = saved.filter(Boolean);
@@ -116,6 +118,7 @@ export async function buildBackup() {
     documents: files.length ? files.map(({ data, ...doc }) => ({ ...doc, data: toBase64(data) })) : undefined,
     cvCheck: cvCheck && cvCheck.cvUploadedAt === cv.uploadedAt ? cvCheck : undefined,
     cvVersions: versions.length ? versions.map(({ id, data, ...version }) => ({ ...version, data: toBase64(data) })) : undefined,
+    letters: letters.length ? letters : undefined,
   };
 }
 
@@ -218,6 +221,20 @@ export async function importBackup(file) {
       }
     }
   }
+  // Cover letters: add new ones, and replace older copies (keeping their dates).
+  if (!Array.isArray(data) && Array.isArray(data?.letters)) {
+    const mine = new Map((await listLetters()).map((letter) => [letter.id, letter]));
+    const restore = [];
+    for (const item of data.letters.slice(0, 2000)) {
+      if (!item || typeof item !== 'object' || typeof item.id !== 'string') continue;
+      const incoming = normalizeLetter(item);
+      const current = mine.get(incoming.id);
+      if (!current || incoming.updatedAt > current.updatedAt) restore.push(incoming);
+    }
+    if (restore.length) await putRecords(STORES.letters, restore);
+    result.lettersRestored = restore.length;
+  }
+
   // Earlier CVs: add the ones this device doesn't have (then keep the newest 10).
   if (!Array.isArray(data) && Array.isArray(data?.cvVersions)) {
     const currentCv = await getRecord(STORES.documents, 'cv');

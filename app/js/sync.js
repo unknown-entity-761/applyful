@@ -29,6 +29,7 @@ import {
   listCvVersions, versionRecordId, pendingVersionDeletions, versionDeletionsSent, archiveCv, cvVersionIdOf,
 } from './profile.js';
 import { getPref, setPref } from './prefs.js';
+import { normalizeLetter, pendingLetterDeletions, letterDeletionsSent } from './letters.js';
 
 const PAGE = 1000;
 const EPOCH = '1970-01-01T00:00:00.000Z';
@@ -365,6 +366,59 @@ async function syncCvVersions(user, token) {
   return { applied, pushed };
 }
 
+// ---- Cover letters (version 6) ----
+// One row per letter in cover_letters, newest copy wins; deleted ones are kept as
+// deleted = true. People have tens of letters, not thousands, so the list is fetched whole.
+
+async function syncLetters(user, token) {
+  const rows = await rest('cover_letters?select=id,data,updated_at,deleted', token);
+  const remote = new Map(rows.map((row) => [row.id, row]));
+  const local = new Map((await getAllRecords(STORES.letters)).map((letter) => [letter.id, normalizeLetter(letter)]));
+  const deletions = pendingLetterDeletions();
+  let applied = 0;
+
+  applying = true;
+  try {
+    for (const row of rows) {
+      const mine = local.get(row.id);
+      if (row.deleted) {
+        if (mine && time(mine.updatedAt) <= time(row.updated_at)) {
+          await deleteRecord(STORES.letters, row.id);
+          local.delete(row.id);
+          applied += 1;
+        }
+        continue;
+      }
+      if (deletions[row.id] && time(deletions[row.id]) >= time(row.updated_at)) continue; // deleted here since: sent below
+      if (mine && time(mine.updatedAt) >= time(row.updated_at)) continue;
+      const letter = normalizeLetter({ ...row.data, id: row.id, updatedAt: toAppTime(row.updated_at) });
+      await putRecords(STORES.letters, [letter]);
+      local.set(row.id, letter);
+      applied += 1;
+    }
+  } finally {
+    applying = false;
+  }
+
+  const push = [];
+  for (const letter of local.values()) {
+    const theirs = remote.get(letter.id);
+    if (theirs && time(theirs.updated_at) >= time(letter.updatedAt)) continue;
+    push.push({ user_id: user.id, id: letter.id, data: letter, updated_at: letter.updatedAt, deleted: false });
+  }
+  const sent = {};
+  for (const [id, deletedAt] of Object.entries(deletions)) {
+    sent[id] = deletedAt;
+    if (local.has(id)) continue; // written again since
+    const theirs = remote.get(id);
+    if (!theirs || theirs.deleted || time(theirs.updated_at) > time(deletedAt)) continue;
+    push.push({ user_id: user.id, id, data: { id }, updated_at: deletedAt, deleted: true });
+  }
+  if (push.length) await upsert('cover_letters', push, 'user_id,id', token);
+  letterDeletionsSent(sent);
+  return { applied, pushed: push.length };
+}
+
 // ---- What each device remembers about each account ----
 
 const memory = new Map();
@@ -457,6 +511,7 @@ onSessionChange(({ from }) => {
   deletionsSent(pendingDeletions());
   unsentSent([...pendingUnsent()]);
   versionDeletionsSent(pendingVersionDeletions());
+  letterDeletionsSent(pendingLetterDeletions());
   for (const kind of Object.keys(DOC_KINDS)) markDocumentDeleted(kind, '');
   if (from) forgetSyncState(from);
 });
@@ -549,8 +604,9 @@ async function run({ confirmMove = askToMove } = {}) {
     // 4. CV and LinkedIn files, the CV check, and earlier CVs
     const docs = await syncDocuments(user, token);
     const versions = await syncCvVersions(user, token);
-    docs.applied += versions.applied;
-    docs.pushed += versions.pushed;
+    const letters = await syncLetters(user, token);
+    docs.applied += versions.applied + letters.applied;
+    docs.pushed += versions.pushed + letters.pushed;
 
     const newest = remoteRows[remoteRows.length - 1];
     state = {
@@ -589,13 +645,14 @@ function schedule(delay) {
 
 /** True when this device has something worth keeping a copy of. */
 export async function hasDataToKeep() {
-  const [apps, profile, cv, linkedin] = await Promise.all([
+  const [apps, profile, cv, linkedin, letters] = await Promise.all([
     getAllRecords(STORES.applications),
     getRecord(STORES.profile, 'me'),
     getRecord(STORES.documents, 'cv'),
     getRecord(STORES.documents, 'linkedin'),
+    getAllRecords(STORES.letters),
   ]);
-  return apps.length > 0 || (Boolean(profile) && !isProfileEmpty(normalizeProfile(profile))) || Boolean(cv || linkedin);
+  return apps.length > 0 || (Boolean(profile) && !isProfileEmpty(normalizeProfile(profile))) || Boolean(cv || linkedin) || letters.length > 0;
 }
 
 /**
