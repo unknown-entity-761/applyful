@@ -102,7 +102,7 @@ One-time setup in the Supabase dashboard:
 
 1. **SQL Editor → New query**: paste `supabase/schema.sql` and run it. It creates the tables, the private file store for CVs, and the rules that let each person see only their own data.
 2. **Authentication → URL Configuration**: Site URL `https://unknown-entity-761.github.io/foliofy/`, and add `http://localhost:5173/**` to Redirect URLs for trying it on this computer.
-3. **Authentication → Sign In / Providers**: switch on **Allow anonymous sign-ins** (for the online copy without an account). Supabase limits new guests to 30 an hour from one internet address; a "prove you're human" check (Cloudflare Turnstile) can be added later if that isn't enough.
+3. **Authentication → Sign In / Providers**: switch on **Allow anonymous sign-ins** (for the online copy without an account). Supabase limits new guests to 30 an hour from one internet address.
 4. Google and Apple sign-in come later (they need a Google Cloud project and the paid Apple Developer account).
 
 ### Deleting unused guest copies

@@ -392,7 +392,6 @@ export const LEGAL_PAGES = {
         list: [
           'Signing in with Google or Apple.',
           'Phone notifications for follow-ups, and a nudge when a company hasn’t replied.',
-          'Locking the app with a PIN or Face ID.',
           'Apps for Android and iPhone.',
         ],
       },
