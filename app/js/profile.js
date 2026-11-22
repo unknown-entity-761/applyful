@@ -256,7 +256,9 @@ export async function saveProfile(profile) {
 }
 
 export async function deleteProfileAndDocuments() {
-  await deleteRecord(STORES.profile, PROFILE_ID);
+  // Saved as an empty profile with today's date rather than removed, so sync can
+  // tell your other devices it was deleted (an empty, newer profile wins).
+  await putRecords(STORES.profile, [{ ...blankProfile(), updatedAt: new Date().toISOString() }]);
   await clearStore(STORES.documents);
   setPref(LEGACY_NAME_KEY, '');
 }

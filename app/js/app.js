@@ -2,7 +2,7 @@
 // and turns on offline mode.
 
 import * as store from './store.js';
-import { route, start, navigate } from './router.js';
+import { route, start, navigate, refresh } from './router.js';
 import { showToast } from './ui.js';
 import { applyTheme } from './theme.js';
 import { APP_NAME } from './config.js';
@@ -22,6 +22,7 @@ import { renderLegal } from './views/legal.js';
 import { renderWelcome } from './views/welcome.js';
 import { needsSetup } from './profile.js';
 import { handleAuthRedirect, currentUser } from './auth.js';
+import { startSync } from './sync.js';
 import { renderAccount, renderSignUp, renderLogIn, renderReset, renderNewPassword } from './views/account.js';
 import './install.js';
 
@@ -88,6 +89,16 @@ async function boot() {
     navigate('/', { replace: true });
   });
   if (fromEmail) reportEmailLink(fromEmail);
+
+  // Signed in: keep this device and the account in step. Changes from other devices
+  // redraw the screen, unless you're in the middle of typing into a form.
+  startSync({
+    onRemoteChanges: () => {
+      const path = location.hash.replace(/^#/, '');
+      const editing = /^\/(new|a\/[^/]+\/edit|profile\/edit|welcome|account)/.test(path);
+      if (!editing) refresh();
+    },
+  });
 
   registerServiceWorker();
 }

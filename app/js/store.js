@@ -8,6 +8,8 @@
 // In version 2 this file can also talk to an online service, and the screens
 // won't need to change, because they only use the functions exported here.
 
+import { getPref, setPref } from './prefs.js';
+
 const DB_NAME = 'job-tracker';
 const DB_VERSION = 2; // 1 = applications only; 2 adds profile and documents
 
@@ -103,6 +105,8 @@ export async function getAllRecords(storeName) {
 /** Writes records exactly as given. */
 export async function putRecords(storeName, records) {
   if (records.length === 0) return;
+  // An application saved again (undo, restore, or from another device) is no longer deleted.
+  if (storeName === STORES.applications) forgetDeletions(records.map((record) => record.id));
   if (mode === 'memory') {
     for (const record of records) memory[storeName].set(record.id, copy(record));
   } else {
@@ -149,11 +153,63 @@ export function putMany(records) {
 }
 
 export function deleteApplication(id) {
+  rememberDeletions([id]);
   return deleteRecord(STORES.applications, id);
 }
 
-export function clearAll() {
+export async function clearAll() {
+  rememberDeletions((await listApplications()).map((app) => app.id));
   return clearStore(STORES.applications);
+}
+
+// ---- Deletions, for sync ----
+// Sync needs to tell your other devices about applications you deleted, so each
+// deletion is remembered (id → when) until it has been sent. Kept to the latest 500.
+
+const DELETIONS_KEY = 'jt-deleted';
+let deletions = null;
+
+function loadDeletions() {
+  if (!deletions) {
+    try {
+      deletions = JSON.parse(getPref(DELETIONS_KEY, '{}')) || {};
+    } catch {
+      deletions = {};
+    }
+  }
+  return deletions;
+}
+
+function saveDeletions() {
+  const newest = Object.entries(deletions).sort((a, b) => b[1].localeCompare(a[1])).slice(0, 500);
+  deletions = Object.fromEntries(newest);
+  setPref(DELETIONS_KEY, JSON.stringify(deletions));
+}
+
+function rememberDeletions(ids) {
+  if (ids.length === 0) return;
+  const at = new Date().toISOString();
+  for (const id of ids) loadDeletions()[id] = at;
+  saveDeletions();
+}
+
+function forgetDeletions(ids) {
+  const list = loadDeletions();
+  if (!ids.some((id) => id in list)) return;
+  for (const id of ids) delete list[id];
+  saveDeletions();
+}
+
+/** Deleted applications not yet sent to the account: { id: deletedAt }. */
+export function pendingDeletions() {
+  return { ...loadDeletions() };
+}
+
+/** Called by sync once these deletions have reached the account. */
+export function deletionsSent(sent) {
+  const list = loadDeletions();
+  for (const [id, at] of Object.entries(sent)) if (list[id] === at) delete list[id];
+  saveDeletions();
 }
 
 // ---- Keeping data safe ----

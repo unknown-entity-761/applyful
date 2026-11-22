@@ -114,7 +114,7 @@ export const LEGAL_PAGES = {
         heading: 'If you create an account',
         paragraphs: [
           'An account is optional. If you create one, your email address, a securely scrambled copy of your password (never the password itself), when you signed up, and what you agreed to (age, terms and privacy policy, and whether you want emails about Foliofy) are stored by Supabase, our account service, on servers in Sydney, Australia. [Link to Supabase’s privacy policy.]',
-          'Keeping your applications and profile in your account, so they appear on all your devices, is being built next. Until it’s switched on, they stay on each device. This policy will say more before it is.',
+          'While you’re signed in, your applications and profile are also kept in your account, so they appear on every device you sign in on and are backed up. Your CV and LinkedIn files stay on your device for now. If you sign out, everything stays on the device too.',
           'You can sign out at any time in Settings, Account. To delete your account, contact us at [contact email] until deleting it in the app is added.',
         ],
       },
@@ -152,8 +152,8 @@ export const LEGAL_PAGES = {
         table: {
           columns: ['Data', 'What it includes', 'Kept', 'Shared with'],
           rows: [
-            ['Applications', 'Company, job title, portal, login email, links, dates, notes, status history', 'This device', 'No one'],
-            ['Profile', 'Name, headline, location, contact details, summary, experience, education, projects, certifications, skills', 'This device', 'No one'],
+            ['Applications', 'Company, job title, portal, login email, links, dates, notes, status history', 'This device, and your account if you’re signed in (Supabase, Sydney)', 'No one; Supabase stores it for us'],
+            ['Profile', 'Name, headline, location, contact details, summary, experience, education, projects, certifications, skills', 'This device, and your account if you’re signed in (Supabase, Sydney)', 'No one; Supabase stores it for us'],
             ['CV and LinkedIn files', 'The files you add', 'This device', 'No one'],
             ['CV check results', 'Your score, the suggestions and the lines they quote from your CV, and which suggestions you ignored', 'This device', 'No one'],
             ['Preferences', 'Light or dark mode, sort order, dismissed prompts', 'This device', 'No one'],
@@ -292,17 +292,18 @@ export const LEGAL_PAGES = {
         heading: 'What works now',
         list: [
           'A short setup the first time you open the app, to fill in your profile from your CV or by hand.',
+          'An optional account: sign in and your applications and profile are the same on every device you use, and backed up.',
           'Tracking applications: status, portal, the email you used, follow-up dates, notes and history.',
           'Filling in your profile from your CV or LinkedIn PDF, on this device and without AI. Scanned CVs are read with OCR.',
           'Checking your CV: a score, what to fix first and what’s already strong.',
           'Adding a follow-up date to your calendar, with a reminder on the day.',
           'Backing up to a file (including your CV) and restoring it, on this phone or a new one.',
         ],
-        after: ['In this preview, everything is saved only on this device, so back up now and then.'],
+        after: ['Without an account, everything is saved only on this device, so back up now and then.'],
       },
       {
         heading: 'Coming soon',
-        list: ['Signing in, so your applications are backed up online and show up on every device you use, phone or computer.'],
+        list: ['Your CV and LinkedIn files kept in your account too, so they’re on every device.'],
       },
       {
         heading: 'Later',

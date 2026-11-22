@@ -17,7 +17,7 @@ import {
   hostOf,
   showToast,
 } from '../ui.js';
-import { getApplication, saveApplication, deleteApplication, putMany } from '../store.js';
+import { getApplication, saveApplication, deleteApplication } from '../store.js';
 import { STATUSES, statusInfo, withStatus, isOpen, isFollowUpDue, followUpText } from '../model.js';
 import { back, refresh } from '../router.js';
 import { googleCalendarUrl, openCalendarFile } from '../calendar.js';
@@ -180,7 +180,7 @@ async function remove(app) {
   showToast(`Deleted ${app.company}`, {
     actionLabel: 'Undo',
     onAction: async () => {
-      await putMany([app]);
+      await saveApplication(app); // saved again as new, so the undo also reaches your other devices
       refresh();
       showToast('Application restored');
     },

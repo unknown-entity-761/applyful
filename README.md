@@ -65,7 +65,9 @@ On screens 960 pixels wide or more, a side menu replaces the bottom tab bar, and
 
 Signing in will be optional: the app keeps working without an account, and signing in adds sync across devices and online backup. The online service is [Supabase](https://supabase.com) (project in Sydney). Its address and publishable key are in `app/js/config.js`; the publishable key is meant to be public, because the database's row level security decides what each signed-in person can see. **Never put the secret key in the app.**
 
-**Sign-in (built):** Settings → Account → Create an account or Log in (`app/js/auth.js`, `app/js/views/account.js`). It talks to Supabase's sign-in service with plain `fetch`, so there's no extra library. Sign-up asks you to confirm you're 16 or older and agree to the terms and privacy policy (with an optional, unticked box for emails), and Supabase emails a link to confirm the address. Email links come back as `#access_token=…` and are picked up on start-up. Forgot password sends a reset link. You stay logged in until you sign out; the password is never stored on the device. **Sync is next.**
+**Sign-in (built):** Settings → Account → Create an account or Log in (`app/js/auth.js`, `app/js/views/account.js`). It talks to Supabase's sign-in service with plain `fetch`, so there's no extra library. Sign-up asks you to confirm you're 16 or older and agree to the terms and privacy policy (with an optional, unticked box for emails), and Supabase emails a link to confirm the address. Email links come back as `#access_token=…` and are picked up on start-up. Forgot password sends a reset link. You stay logged in until you sign out; the password is never stored on the device. 
+
+**Sync (built):** while signed in, applications and the profile are kept the same on every device and backed up to the account (`app/js/sync.js`). The newest copy of each record wins, by `updatedAt`, as with backups. Each sync fetches only what changed in the account since the last one (the server stamps `synced_at`), applies anything newer, then sends this device's changes; deleted applications are remembered (`store.js`) and sent as `deleted = true`. It runs on sign-in, on start-up, when the app comes back on screen or online, and a few seconds after a change. The first sync for an account on a device that already has data asks before moving it in (Cancel signs out). CV and LinkedIn files aren't synced yet.
 
 One-time setup in the Supabase dashboard:
 
@@ -149,6 +151,7 @@ flowchart LR
 | `app/js/cv/ocr.js` | Reads scanned PDFs with Tesseract OCR, loaded only when needed |
 | `app/js/views/cv-check.js` | The CV check screen |
 | `app/js/auth.js` | Sign up, log in, stay logged in, reset a password, sign out (Supabase, with plain fetch) |
+| `app/js/sync.js` | Sync: keeps applications and the profile the same on every signed-in device |
 | `app/js/views/account.js` | The account screens, from Settings → Account |
 | `app/js/views/shell.js` | Computer layout: the side menu and the applications list beside the details |
 | `app/js/views/welcome.js` | First-time setup: upload a CV or fill in the profile by hand |

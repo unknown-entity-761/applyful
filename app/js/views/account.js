@@ -19,6 +19,7 @@ import {
   MIN_AGE,
 } from '../auth.js';
 import { navigate } from '../router.js';
+import { syncNow, syncStatus } from '../sync.js';
 import { field, setFieldError, linkHints } from './fields.js';
 import { subHeader, wireBack } from './components.js';
 
@@ -33,8 +34,12 @@ export async function renderAccount(ctx) {
         <section class="panel">
           <h2 class="panel-title">${icon('user')} Signed in</h2>
           <p>You’re signed in as <strong>${user.email}</strong>.</p>
-          <p class="hint">Keeping your applications in step across your devices, with automatic backup, is being built next. Until then, they’re still saved on each device, so keep backing up.</p>
-          <button type="button" class="btn block" data-action="sign-out">Sign out</button>
+          <p class="sync-line" data-sync-status aria-live="polite"></p>
+          <p class="hint">Your applications and profile are kept the same on every device you sign in on, and backed up to your account. CV and LinkedIn files aren’t synced yet, so keep them in your backups.</p>
+          <div class="stack">
+            <button type="button" class="btn block" data-action="sync-now">Sync now</button>
+            <button type="button" class="btn block" data-action="sign-out">Sign out</button>
+          </div>
         </section>`
       : html`
         <section class="panel">
@@ -49,12 +54,35 @@ export async function renderAccount(ctx) {
     </main>
   `);
   wireBack(screen, '/settings');
+  const line = screen.querySelector('[data-sync-status]');
+  if (line) {
+    const show = () => {
+      const now = syncStatus();
+      line.classList.toggle('warning', now.state === 'error');
+      line.textContent = now.state === 'syncing' ? 'Syncing…'
+        : now.state === 'error' ? now.error
+        : now.lastSyncedAt ? `Synced ${formatSyncTime(now.lastSyncedAt)}` : 'Not synced yet';
+    };
+    show();
+    const onChange = () => (line.isConnected ? show() : window.removeEventListener('foliofy:sync-changed', onChange));
+    window.addEventListener('foliofy:sync-changed', onChange);
+    screen.querySelector('[data-action="sync-now"]').addEventListener('click', () => syncNow());
+  }
   screen.querySelector('[data-action="sign-out"]')?.addEventListener('click', async () => {
     await signOut();
     showToast('Signed out. Everything on this device is still here.');
     renderAccount(ctx);
   });
   mount(screen, ctx);
+}
+
+/** "just now", "at 3:42 pm", or "on 21 Nov at 3:42 pm". */
+function formatSyncTime(iso) {
+  const when = new Date(iso);
+  if (Date.now() - when.getTime() < 60 * 1000) return 'just now';
+  const timeText = when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (when.toDateString() === new Date().toDateString()) return `at ${timeText}`;
+  return `on ${when.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} at ${timeText}`;
 }
 
 function emailField(value = '') {

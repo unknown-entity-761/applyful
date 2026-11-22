@@ -39,6 +39,21 @@ test('every file the app imports exists, and is kept offline unless it is the OC
   assert.ok(checked > 50, `found the imports (${checked})`);
 });
 
+test('every script in the app has valid syntax', async () => {
+  // Most screens only run in a browser, so the other tests never load them. This
+  // catches a typo in any of them before it reaches the live site.
+  const { execFileSync } = await import('node:child_process');
+  const scripts = (await listAppFiles()).filter((file) => file.startsWith('./js/') && file.endsWith('.js'));
+  assert.ok(scripts.length > 30);
+  for (const script of scripts) {
+    try {
+      execFileSync(process.execPath, ['--check', path.join(APP_DIR, script)], { stdio: 'pipe' });
+    } catch (error) {
+      assert.fail(`${script} has a syntax error:\n${String(error.stderr).split('\n').slice(0, 5).join('\n')}`);
+    }
+  }
+});
+
 test('the page links only to files that exist', async () => {
   const page = await readFile(path.join(APP_DIR, 'index.html'), 'utf8');
   const links = [...page.matchAll(/\b(?:href|src)="(\.?\/?[^"#:]+)"/g)].map(([, link]) => link.replace(/^\.?\//, ''));
