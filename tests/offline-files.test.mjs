@@ -64,15 +64,15 @@ test('the page links only to files that exist', async () => {
 test('the cache name changes whenever a file changes', () => {
   const files = [{ path: './a.js', bytes: Buffer.from('one') }, { path: './b.js', bytes: Buffer.from('two') }];
   const changed = [files[0], { path: './b.js', bytes: Buffer.from('two!') }];
-  assert.match(cacheName(files), /^foliofy-[0-9a-f]{12}$/);
+  assert.match(cacheName(files), /^applyful-[0-9a-f]{12}$/);
   assert.equal(cacheName(files), cacheName(files));
   assert.notEqual(cacheName(files), cacheName(changed));
 });
 
 test('sw.js gets the new list and cache name, and nothing else changes', async () => {
   const source = await readFile(path.join(APP_DIR, 'sw.js'), 'utf8');
-  const updated = renderServiceWorker(source, ['./', './index.html', './js/new-file.js'], 'foliofy-test');
-  assert.match(updated, /^const CACHE = 'foliofy-test';$/m);
+  const updated = renderServiceWorker(source, ['./', './index.html', './js/new-file.js'], 'applyful-test');
+  assert.match(updated, /^const CACHE = 'applyful-test';$/m);
   assert.match(updated, /const APP_FILES = \[\n {2}'\.\/',\n {2}'\.\/index\.html',\n {2}'\.\/js\/new-file\.js',\n\];/);
   const rest = (text) => text.replace(/^const CACHE = .*$/m, '').replace(/^const APP_FILES = \[[\s\S]*?^\];/m, '');
   assert.equal(rest(updated), rest(source));

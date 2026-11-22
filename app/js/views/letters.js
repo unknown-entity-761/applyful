@@ -222,7 +222,7 @@ export async function renderLetterEditor({ id, appId } = {}, ctx) {
         downloadWord(current());
         break;
       case 'print':
-        if (!printLetter(current())) showToast('Your browser blocked the print window. Allow pop-ups for Foliofy and try again.', { duration: 6000 });
+        if (!printLetter(current())) showToast('Your browser blocked the print window. Allow pop-ups for Applyful and try again.', { duration: 6000 });
         break;
       case 'duplicate': {
         const copyOf = await saveLetter({ ...current(), id: makeId(), appIds: [], createdAt: undefined });

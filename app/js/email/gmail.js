@@ -1,6 +1,6 @@
 // Gmail, read-only (version 5, email import). Everything happens on this device: the
 // app asks Google for permission in Google's own window, then reads emails straight
-// from Gmail. No email reaches Foliofy's server; only what's saved on applications
+// from Gmail. No email reaches Applyful's server; only what's saved on applications
 // does (and that syncs like anything else you type).
 //
 // - Google's sign-in library is loaded only when someone opens the Gmail screens.
@@ -37,7 +37,7 @@ export class GmailError extends Error {
 const MESSAGES = {
   'not-set-up': 'Gmail isn’t set up for this app yet.',
   offline: 'Couldn’t reach Google. Check your connection and try again.',
-  'not-granted': 'Gmail wasn’t connected: Foliofy needs permission to read your email. Nothing was changed.',
+  'not-granted': 'Gmail wasn’t connected: Applyful needs permission to read your email. Nothing was changed.',
   closed: 'Gmail wasn’t connected: the Google window was closed.',
   'not-ready': 'Google’s sign-in is still loading. Try again in a moment.',
   expired: 'Your Gmail connection ran out. Tap Check Gmail again.',

@@ -1,4 +1,4 @@
--- Foliofy's online database (version 4: accounts, sync and online backup).
+-- Applyful's online database (version 4: accounts, sync and online backup).
 --
 -- Run it once: Supabase → your project → SQL Editor → New query → paste all of this → Run.
 -- It's safe to run again: it only adds what's missing.
@@ -259,7 +259,7 @@ create trigger documents_0_keep_newest before update on public.documents
 
 -- ---- Guests nobody has used for a year ----
 -- A guest's online copy can only be opened from the browser that made it. If that
--- browser hasn't opened Foliofy for 12 months, the copy is deleted. The scheduled job
+-- browser hasn't opened Applyful for 12 months, the copy is deleted. The scheduled job
 -- in supabase/functions/delete-unused-guests asks for the list, deletes each guest's
 -- files, then the guest (which removes its rows). Activity = signing in or refreshing
 -- the session, which the app does whenever it's opened after an hour or more.

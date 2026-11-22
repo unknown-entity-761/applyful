@@ -115,7 +115,7 @@ async function boot() {
   showConsentBanner();
 
   // A session refused by the server (signed out elsewhere, or expired): say so.
-  window.addEventListener('foliofy:auth-changed', (event) => {
+  window.addEventListener('applyful:auth-changed', (event) => {
     if (event.detail.reason === 'expired') showToast('You’ve been signed out on this device. Log in again in Settings, Account, to keep syncing.', { duration: 8000 });
   });
 

@@ -89,7 +89,7 @@ async function run(storeName, txMode, work) {
 
 function notifyChange(storeName) {
   if (typeof window === 'undefined' || typeof CustomEvent !== 'function') return;
-  window.dispatchEvent(new CustomEvent('foliofy:data-changed', { detail: { store: storeName } }));
+  window.dispatchEvent(new CustomEvent('applyful:data-changed', { detail: { store: storeName } }));
 }
 
 // ---- Generic record helpers ----

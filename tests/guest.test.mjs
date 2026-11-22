@@ -14,7 +14,7 @@ globalThis.localStorage = {
 };
 globalThis.window = new EventTarget();
 const events = [];
-window.addEventListener('foliofy:auth-changed', (event) => events.push(event.detail));
+window.addEventListener('applyful:auth-changed', (event) => events.push(event.detail));
 
 const store = await import('../app/js/store.js');
 const { STORES } = store;

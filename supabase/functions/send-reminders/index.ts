@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     const { data: subs } = await admin.from('push_subscriptions').select('*').eq('user_id', data.user.id);
     let sent = 0;
     for (const sub of (subs ?? []) as Subscription[]) {
-      if (await send(sub, { title: 'Foliofy', body: 'Notifications are working.', url: '#/settings/notifications', tag: 'test' })) sent += 1;
+      if (await send(sub, { title: 'Applyful', body: 'Notifications are working.', url: '#/settings/notifications', tag: 'test' })) sent += 1;
     }
     return reply({ sent });
   }

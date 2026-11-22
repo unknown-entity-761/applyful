@@ -4,9 +4,9 @@
 // cookies in Settings. Both choices can be changed at any time.
 //
 // What's stored on the device:
-//   foliofy_consent  a cookie remembering the choice (needed to respect it)
-//   foliofy_id       an analytics cookie with a random id for this device, set only
-//                    after accepting, kept for 13 months, removed when switched off
+//   applyful_consent  a cookie remembering the choice (needed to respect it)
+//   applyful_id       an analytics cookie with a random id for this device, set only
+//                     after accepting, kept for 13 months, removed when switched off
 // What's sent (to the events table in our Supabase database, Sydney): the event name,
 // the screen (with ids removed, e.g. /a/:id), simple non-personal details, the device
 // id, the app version, phone or computer layout, and whether someone is signed in.
@@ -23,10 +23,11 @@ import { makeId } from './model.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, APP_VERSION } from './config.js';
 
 const CONSENT_KEY = 'jt-usage-consent'; // 'yes:<when>' | 'no:<when>' | '' (not asked yet)
-const CONSENT_COOKIE = 'foliofy_consent';
-const ID_COOKIE = 'foliofy_id';
+const CONSENT_COOKIE = 'applyful_consent';
+const ID_COOKIE = 'applyful_id';
 const ID_DAYS = 395; // about 13 months
 const CONSENT_DAYS = 365;
+const DAY_MS = 86400 * 1000;
 
 // ---- Cookies (first-party, only for this app's address) ----
 
@@ -44,6 +45,31 @@ function writeCookie(name, value, days) {
   const expires = days > 0 ? `; Max-Age=${Math.round(days * 86400)}` : '; Max-Age=0';
   document.cookie = `${name}=${encodeURIComponent(value)}; Path=${cookiePath()}; SameSite=Lax${expires}${secure}`;
 }
+
+// Until 23 Nov 2026 the app was called Foliofy, and so were its cookies. Each old
+// cookie moves to its new name once, keeping its value, so nobody is asked again.
+// The cookie choice keeps the time it was made, so it still runs out 12 months on.
+const OLD_COOKIES = [
+  ['foliofy_consent', CONSENT_COOKIE],
+  ['foliofy_id', ID_COOKIE],
+];
+
+export function moveOldCookies() {
+  for (const [oldName, newName] of OLD_COOKIES) {
+    const value = readCookie(oldName);
+    if (!value) continue;
+    if (!readCookie(newName)) {
+      let days = ID_DAYS;
+      if (newName === CONSENT_COOKIE) {
+        const when = Number(String(getPref(CONSENT_KEY, '')).split(':')[1]);
+        days = when > 0 ? CONSENT_DAYS - (Date.now() - when) / DAY_MS : CONSENT_DAYS;
+      }
+      if (days > 0) writeCookie(newName, value, days);
+    }
+    writeCookie(oldName, '', 0);
+  }
+}
+moveOldCookies();
 
 // ---- Consent ----
 
@@ -71,7 +97,7 @@ export function setUsageConsent(on) {
     setPref('jt-usage-device-id', '');
   }
   if (typeof window !== 'undefined' && typeof CustomEvent === 'function') {
-    window.dispatchEvent(new CustomEvent('foliofy:consent-changed', { detail: { analytics: on } }));
+    window.dispatchEvent(new CustomEvent('applyful:consent-changed', { detail: { analytics: on } }));
   }
 }
 

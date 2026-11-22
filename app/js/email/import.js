@@ -64,7 +64,7 @@ export const emailsToReview = () => readList(REVIEW_KEY);
 export const lastEmailCheck = () => getPref(CHECKED_KEY, '');
 
 function changed() {
-  if (typeof window !== 'undefined' && typeof CustomEvent === 'function') window.dispatchEvent(new CustomEvent('foliofy:email-changed'));
+  if (typeof window !== 'undefined' && typeof CustomEvent === 'function') window.dispatchEvent(new CustomEvent('applyful:email-changed'));
 }
 
 // ---- Deciding (no network or saving, so it can be tested) ----

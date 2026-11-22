@@ -6,7 +6,7 @@
 // GitHub also runs before every publish. Don't edit them by hand. The cache name
 // changes whenever a file changes, so phones pick up each new version.
 
-const CACHE = 'foliofy-225006093155';
+const CACHE = 'applyful-8d45578ffd6a';
 
 const APP_FILES = [
   './',
@@ -138,7 +138,7 @@ self.addEventListener('push', (event) => {
   } catch {
     data = { body: event.data ? event.data.text() : '' };
   }
-  event.waitUntil(self.registration.showNotification(data.title || 'Foliofy', {
+  event.waitUntil(self.registration.showNotification(data.title || 'Applyful', {
     body: data.body || '',
     tag: data.tag || undefined,
     icon: './icons/icon-192.png',

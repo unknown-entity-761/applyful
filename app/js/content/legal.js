@@ -103,7 +103,7 @@ export const LEGAL_PAGES = {
         heading: 'How long we keep it',
         paragraphs: [
           'Account data, including your synced applications, profile and files, is kept until you delete it or your account.',
-          'An online copy kept without an account is deleted when you turn it off, or when you log in or create an account in that browser (if you agree, its data moves into the account). If the copy can no longer be reached, for example because that browser’s data was cleared, or that browser hasn’t opened Foliofy for 12 months, it’s deleted after 12 months unused.',
+          'An online copy kept without an account is deleted when you turn it off, or when you log in or create an account in that browser (if you agree, its data moves into the account). If the copy can no longer be reached, for example because that browser’s data was cleared, or that browser hasn’t opened Applyful for 12 months, it’s deleted after 12 months unused.',
           'We keep analytics data for [14 months], then delete it. Overall statistics that can’t identify anyone may be kept for longer.',
         ],
       },
@@ -112,7 +112,7 @@ export const LEGAL_PAGES = {
         list: [
           'Sell your information.',
           'Use your information for advertising.',
-          'Track you across other apps or websites. Our cookies only work on Foliofy.',
+          'Track you across other apps or websites. Our cookies only work on Applyful.',
         ],
       },
       {
@@ -128,18 +128,18 @@ export const LEGAL_PAGES = {
       {
         heading: 'Notifications, if you turn them on',
         paragraphs: [
-          'Notifications are optional (Settings → Notifications). If you turn them on, your browser gives Foliofy a push address from its push service: Google for Chrome and Android, Apple for Safari and iPhone, or Mozilla for Firefox. We keep that address, your reminder settings and your time zone on our server (Supabase, in Sydney), so a scheduled job can send reminders at the time you choose. To work out what’s due, it reads the follow-up dates and statuses of the applications in your account or online copy.',
+          'Notifications are optional (Settings → Notifications). If you turn them on, your browser gives Applyful a push address from its push service: Google for Chrome and Android, Apple for Safari and iPhone, or Mozilla for Firefox. We keep that address, your reminder settings and your time zone on our server (Supabase, in Sydney), so a scheduled job can send reminders at the time you choose. To work out what’s due, it reads the follow-up dates and statuses of the applications in your account or online copy.',
           'Each reminder (the company and job title) passes through your browser’s push service, encrypted so that only your device can read it. We keep a record of which reminders were sent for 60 days, so none is sent twice. Turning notifications off, or signing out on that device, removes its push address.',
         ],
       },
       {
         heading: 'Gmail, if you connect it',
         paragraphs: [
-          'Connecting Gmail is optional (Settings → Gmail). Google asks you to allow read-only access: Foliofy can’t send, delete or change your email.',
+          'Connecting Gmail is optional (Settings → Gmail). Google asks you to allow read-only access: Applyful can’t send, delete or change your email.',
           'Your email is read on your device, straight from Google, and never sent to our server. The app looks only at job emails: application confirmations, assessment and interview invites, offers and rejections. From those it saves, on your applications: the company, job title, job number, portal, status, the email address you applied with, a link to the email in Gmail, and the name, job title, email address and phone number of a recruiter who writes to you. These are kept like the rest of your applications (on your device, and in your account or online copy if you use one).',
-          'The permission Google gives lasts about an hour and is kept only in the app’s memory, never saved. Disconnecting Gmail in Settings withdraws it; you can also remove Foliofy at myaccount.google.com/permissions. Disconnecting clears the list of email changes on this device; applications already added stay.',
-          'Google’s sign-in window is on Google’s own site, under Google’s privacy policy. Foliofy loads Google’s sign-in code only when you open the Gmail screens.',
-          'Foliofy’s use and transfer of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements. We don’t use Gmail data for advertising, don’t sell it, don’t let people read it, and don’t use it to train AI.',
+          'The permission Google gives lasts about an hour and is kept only in the app’s memory, never saved. Disconnecting Gmail in Settings withdraws it; you can also remove Applyful at myaccount.google.com/permissions. Disconnecting clears the list of email changes on this device; applications already added stay.',
+          'Google’s sign-in window is on Google’s own site, under Google’s privacy policy. Applyful loads Google’s sign-in code only when you open the Gmail screens.',
+          'Applyful’s use and transfer of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements. We don’t use Gmail data for advertising, don’t sell it, don’t let people read it, and don’t use it to train AI.',
         ],
       },
       {
@@ -153,7 +153,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'If you create an account',
         paragraphs: [
-          'An account is optional. If you create one, your email address, a securely scrambled copy of your password (never the password itself), when you signed up, and what you agreed to (age, terms and privacy policy, and whether you want emails about Foliofy) are stored by Supabase on servers in Sydney, Australia.',
+          'An account is optional. If you create one, your email address, a securely scrambled copy of your password (never the password itself), when you signed up, and what you agreed to (age, terms and privacy policy, and whether you want emails about Applyful) are stored by Supabase on servers in Sydney, Australia.',
           'While you’re signed in, your applications, profile, CV and LinkedIn files and CV check results are kept in your account, so they appear on every device you sign in on and are backed up. Files are kept in private storage that only your account can open. If you sign out, everything stays on the device too.',
           'You can sign out at any time in Settings, Account. To delete your account, contact us at [contact email] until deleting it in the app is added.',
         ],
@@ -185,7 +185,7 @@ export const LEGAL_PAGES = {
     title: 'Cookie policy',
     updated: UPDATED,
     draft: true,
-    intro: 'What Foliofy stores on your device, and why. Only analytics cookies need your OK; the rest is needed for the app to work.',
+    intro: 'What Applyful stores on your device, and why. Only analytics cookies need your OK; the rest is needed for the app to work.',
     sections: [
       {
         heading: 'Needed for the app to work',
@@ -196,7 +196,7 @@ export const LEGAL_PAGES = {
             [{ text: 'Your data', note: 'Browser storage' }, 'Your applications, profile and files, so the app works on this device, even with no signal', 'Until you delete it'],
             [{ text: 'Sign-in', note: 'Browser storage' }, 'Keeps you signed in if you have an account, or links this browser to its online copy if you keep one', 'Until you sign out or turn the online copy off'],
             [{ text: 'Settings', note: 'Browser storage' }, 'Light or dark mode, sort order, prompts you’ve dismissed, sync progress', 'Until you clear your browser'],
-            [{ text: 'Cookie choice', note: 'Cookie: foliofy_consent' }, 'Remembers your answer on the cookie banner', '12 months'],
+            [{ text: 'Cookie choice', note: 'Cookie: applyful_consent' }, 'Remembers your answer on the cookie banner', '12 months'],
           ],
         },
       },
@@ -206,7 +206,7 @@ export const LEGAL_PAGES = {
         table: {
           columns: ['What', 'Why', 'How long'],
           rows: [
-            [{ text: 'Analytics ID', note: 'Cookie: foliofy_id' }, 'A random ID for your device, so we can count how many people use the app and how often they come back. Not linked to your name, email or account.', '13 months from your last visit'],
+            [{ text: 'Analytics ID', note: 'Cookie: applyful_id' }, 'A random ID for your device, so we can count how many people use the app and how often they come back. Not linked to your name, email or account.', '13 months from your last visit'],
           ],
         },
         after: ['What’s collected with it is listed in the Privacy policy, under “Analytics cookies, to improve your experience”.'],
@@ -217,7 +217,7 @@ export const LEGAL_PAGES = {
       },
       {
         heading: 'No third-party cookies',
-        paragraphs: ['Foliofy doesn’t use advertising cookies, and no other company sets cookies through the app. If you connect Gmail, you sign in to Google in Google’s own window, on Google’s site, under Google’s cookie and privacy policies.'],
+        paragraphs: ['Applyful doesn’t use advertising cookies, and no other company sets cookies through the app. If you connect Gmail, you sign in to Google in Google’s own window, on Google’s site, under Google’s cookie and privacy policies.'],
       },
     ],
   },
@@ -370,7 +370,7 @@ export const LEGAL_PAGES = {
     title: 'What’s coming',
     updated: '',
     draft: false,
-    intro: 'Foliofy is a preview for testers, so some features aren’t built yet. If something seems to be missing, it’s probably on this list.',
+    intro: 'Applyful is a preview for testers, so some features aren’t built yet. If something seems to be missing, it’s probably on this list.',
     sections: [
       {
         heading: 'What works now',
@@ -410,7 +410,7 @@ export const LEGAL_PAGES = {
         list: [
           'Cover letters and a job match check, written with AI, that you can edit before using.',
           'An AI review of your CV, with rewrites you can accept.',
-          'A new look, more languages, and Foliofy on Google Play and the App Store.',
+          'A new look, more languages, and Applyful on Google Play and the App Store.',
         ],
       },
       {
@@ -429,7 +429,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'Something missing?',
         paragraphs: [
-          'Foliofy is a preview, so some features aren’t built yet. To see what’s coming, open Settings (on a phone, the menu button on Profile), then What’s coming.',
+          'Applyful is a preview, so some features aren’t built yet. To see what’s coming, open Settings (on a phone, the menu button on Profile), then What’s coming.',
         ],
       },
       {
@@ -468,7 +468,7 @@ export const LEGAL_PAGES = {
         heading: 'Reminders and notifications',
         paragraphs: [
           'Home lists follow-ups that are due, and applications that have had no reply for a few weeks, with one tap to mark them Ghosted. Choose the number of weeks in Settings → Notifications.',
-          'Notifications bring the same reminders to your phone or computer at the time you choose, even when Foliofy is closed. They need an account or the online copy, because Foliofy’s server sends them. On iPhone, add Foliofy to your Home Screen first, then turn them on from there.',
+          'Notifications bring the same reminders to your phone or computer at the time you choose, even when Applyful is closed. They need an account or the online copy, because Applyful’s server sends them. On iPhone, add Applyful to your Home Screen first, then turn them on from there.',
         ],
       },
       {

@@ -41,7 +41,7 @@ export async function listAppFiles(dir = APP_DIR) {
 export function cacheName(files) {
   const hash = createHash('sha256');
   for (const { path: filePath, bytes } of files) hash.update(filePath).update('\0').update(bytes).update('\0');
-  return `foliofy-${hash.digest('hex').slice(0, 12)}`;
+  return `applyful-${hash.digest('hex').slice(0, 12)}`;
 }
 
 const CACHE_LINE = /^const CACHE = '[^']*';/m;

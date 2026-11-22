@@ -68,7 +68,7 @@ export function authMessage(code, detail = '') {
     validation_failed: 'Check the email address and password.',
     same_password: 'That’s your current password. Choose a new one.',
     session_expired: 'You’ve been logged out. Log in again.',
-    network: 'Couldn’t reach Foliofy’s server. Check your connection and try again.',
+    network: 'Couldn’t reach Applyful’s server. Check your connection and try again.',
   };
   return messages[code] ?? (detail ? `Something went wrong: ${detail}` : 'Something went wrong. Please try again.');
 }
@@ -168,7 +168,7 @@ export function setSyncWaiter(fn) {
 
 function onlineCopyChanged() {
   if (typeof window !== 'undefined' && typeof CustomEvent === 'function') {
-    window.dispatchEvent(new CustomEvent('foliofy:online-copy-changed', { detail: { choice: onlineCopyChoice() } }));
+    window.dispatchEvent(new CustomEvent('applyful:online-copy-changed', { detail: { choice: onlineCopyChoice() } }));
   }
 }
 
@@ -179,7 +179,7 @@ function onlineCopyChanged() {
  */
 function notify(reason = session ? 'signed-in' : 'signed-out') {
   if (typeof window !== 'undefined' && typeof CustomEvent === 'function') {
-    window.dispatchEvent(new CustomEvent('foliofy:auth-changed', {
+    window.dispatchEvent(new CustomEvent('applyful:auth-changed', {
       detail: { signedIn: Boolean(currentUser()), online: Boolean(session), guest: Boolean(session?.guest), reason },
     }));
   }
@@ -187,7 +187,7 @@ function notify(reason = session ? 'signed-in' : 'signed-out') {
 
 /** Runs `work` while no other tab is changing the session. */
 function oneTabAtATime(work) {
-  if (typeof navigator !== 'undefined' && navigator.locks?.request) return navigator.locks.request('foliofy-session', work);
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) return navigator.locks.request('applyful-session', work);
   return work();
 }
 

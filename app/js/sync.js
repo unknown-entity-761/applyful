@@ -462,7 +462,7 @@ export function syncStatus() {
 function setStatus(next) {
   status = { ...status, ...next };
   if (typeof window !== 'undefined' && typeof CustomEvent === 'function') {
-    window.dispatchEvent(new CustomEvent('foliofy:sync-changed', { detail: syncStatus() }));
+    window.dispatchEvent(new CustomEvent('applyful:sync-changed', { detail: syncStatus() }));
   }
 }
 
@@ -683,12 +683,12 @@ export function startSync({ onRemoteChanges = () => {}, askOnlineCopy = () => {}
     if (result?.applied > 0) onRemoteChanges(result);
   };
   const syncOrStart = () => (onlineUser() ? runAndReport() : keepOnlineCopy(askOnlineCopy));
-  window.addEventListener('foliofy:data-changed', () => {
+  window.addEventListener('applyful:data-changed', () => {
     if (applying) return;
     if (onlineUser()) schedule(CHANGE_DELAY_MS);
     else keepOnlineCopy(askOnlineCopy);
   });
-  window.addEventListener('foliofy:auth-changed', (event) => {
+  window.addEventListener('applyful:auth-changed', (event) => {
     if (event.detail.online) runAndReport();
     else {
       setStatus({ state: 'off', error: '' });

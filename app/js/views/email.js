@@ -49,10 +49,10 @@ export async function renderEmailSettings(ctx) {
     <main class="content">
       <section class="panel">
         <h2 class="panel-title">${icon('mail')} Applications from your email</h2>
-        <p>Connect Gmail and Foliofy adds an application when a confirmation email arrives, then moves it on when you hear back: assessments, interviews, offers and rejections. Recruiters who write to you are saved as contacts on the application.</p>
+        <p>Connect Gmail and Applyful adds an application when a confirmation email arrives, then moves it on when you hear back: assessments, interviews, offers and rejections. Recruiters who write to you are saved as contacts on the application.</p>
         <ul class="plain-list">
           <li>Read-only: it can’t send, delete or change your email.</li>
-          <li>Your email is read here on your device and never sent to Foliofy’s server. Only what’s saved on your applications is kept.</li>
+          <li>Your email is read here on your device and never sent to Applyful’s server. Only what’s saved on your applications is kept.</li>
           <li>Every change shows in Activity, with Undo. Anything it can’t match for certain waits there for you to decide.</li>
         </ul>
         ${!available

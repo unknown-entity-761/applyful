@@ -1,6 +1,8 @@
-# Foliofy - Application tracker
+# Applyful - Application tracker
 
 Live at https://unknown-entity-761.github.io/foliofy/. The app name lives in `app/js/config.js`, `app/index.html` and `app/manifest.webmanifest`.
+
+The app was called Foliofy until 23 Nov 2026. The web address, the GitHub repo and this folder still use the old name; the on-device storage never did (`job-tracker` database, `jt-` preferences), so nothing was lost in the rename. The old `foliofy_consent` and `foliofy_id` cookies move to the new names on first open (`app/js/analytics.js`).
 
 A phone-first web app for tracking job applications across Workday, SuccessFactors and other portals. It opens in a phone browser, can be added to the home screen like a normal app, and works offline. Everything is saved on the device; there is no account and no server.
 
@@ -79,9 +81,9 @@ Settings → Gmail connects Gmail **read-only** (`app/js/email/gmail.js`), using
 `app/js/email/rules.js` recognises job emails without AI: confirmations, assessment and interview invites, offers and rejections (a "what if" sentence like "if you don't hear back, consider your application unsuccessful" isn't a rejection), plus the company, job title, job number, portal, and a recruiter's name, title and phone from their signature. `app/js/email/import.js` applies them, as the PRD sets out: a confirmation adds an application (with the address you applied with); later emails move it on, never backwards; matching goes conversation → job number or exact title → the only open application at that company; anything uncertain goes to **Needs a look**. Every change is listed on Activity with **Undo** (`app/js/views/email.js`). Decided for now: changes happen automatically with undo (the PRD's open question), Gmail only.
 
 **To switch it on** (Google Cloud, free):
-1. console.cloud.google.com → create a project (e.g. "Foliofy").
+1. console.cloud.google.com → create a project (e.g. "Applyful").
 2. **APIs & Services → Library**: enable the **Gmail API**.
-3. **Google Auth Platform → Branding** (the OAuth consent screen): app name Foliofy, your support email, and the app's home page and privacy policy links. **Audience**: External, and while it's in Testing add your own Gmail (and testers, up to 100) as test users. **Data access**: add the scope `.../auth/gmail.readonly`.
+3. **Google Auth Platform → Branding** (the OAuth consent screen): app name Applyful, your support email, and the app's home page and privacy policy links. **Audience**: External, and while it's in Testing add your own Gmail (and testers, up to 100) as test users. **Data access**: add the scope `.../auth/gmail.readonly`.
 4. **Clients → Create client**: type **Web application**; Authorized JavaScript origins `https://unknown-entity-761.github.io` and `http://localhost:5173`. No redirect URIs are needed.
 5. Put the **Client ID** (it ends in `.apps.googleusercontent.com`; it's public, unlike the client secret, which isn't used) in `GOOGLE_CLIENT_ID` in `app/js/config.js`.
 
@@ -93,7 +95,7 @@ Adding a different CV keeps the previous one as an earlier version, with its CV 
 
 ### Computer layout
 
-On screens 960 pixels wide or more, a side menu replaces the bottom tab bar, and on Jobs the applications list stays on the left with an application's details on the right (`app/js/views/shell.js`, and the "Computer layout" block at the end of `styles.css`). Phones are unchanged. Screens that save data send a `foliofy:data-changed` event (from `store.js`), which keeps the list beside the details up to date.
+On screens 960 pixels wide or more, a side menu replaces the bottom tab bar, and on Jobs the applications list stays on the left with an application's details on the right (`app/js/views/shell.js`, and the "Computer layout" block at the end of `styles.css`). Phones are unchanged. Screens that save data send a `applyful:data-changed` event (from `store.js`), which keeps the list beside the details up to date.
 
 ### Accounts and sync (in progress)
 
@@ -107,7 +109,7 @@ Signing in will be optional: the app keeps working without an account, and signi
 
 **Changes belong to the session they were made in** (`onSessionChange` in `sync.js`): when this device starts syncing as someone else (signing in or out, a guest starting or ending), deletions and other changes not yet sent are dropped rather than sent to the wrong account, and the previous account's sync record is forgotten, so its next sync here asks before moving data in. A marker in the app's own storage notices when that storage was lost while the sign-in was kept, and fetches everything again.
 
-**Analytics (with consent):** a cookie banner asks first (`app/js/views/consent.js`); only after "Accept analytics" (or Settings → Analytics cookies) does the app set the `foliofy_id` cookie and send anonymous events (screen names without ids, feature names, app version, layout, signed in or not) to the `events` table in Supabase (`app/js/analytics.js`). The Cookie policy (`legal.js`, `cookies`) lists everything stored.
+**Analytics (with consent):** a cookie banner asks first (`app/js/views/consent.js`); only after "Accept analytics" (or Settings → Analytics cookies) does the app set the `applyful_id` cookie and send anonymous events (screen names without ids, feature names, app version, layout, signed in or not) to the `events` table in Supabase (`app/js/analytics.js`). The Cookie policy (`legal.js`, `cookies`) lists everything stored.
 
 One-time setup in the Supabase dashboard:
 
@@ -149,7 +151,7 @@ The sample CVs are in `tests/fixtures` (the HTML they were printed from is in `t
 
 Push to `main`. GitHub then runs the tests, writes the offline file list and cache name into `app/sw.js` (`tools/build-sw.mjs`), and publishes. If a test fails, nothing is published and the live app stays as it was.
 
-The cache name comes from the files' contents, so every change gives a new one. Phones notice it the next time the app opens or comes back on screen, and show **"A new version of Foliofy is ready. Reload"**. To update `sw.js` on this computer too (for example before trying offline mode locally), run `npm.cmd run build-sw`.
+The cache name comes from the files' contents, so every change gives a new one. Phones notice it the next time the app opens or comes back on screen, and show **"A new version of Applyful is ready. Reload"**. To update `sw.js` on this computer too (for example before trying offline mode locally), run `npm.cmd run build-sw`.
 
 ## How it's built
 

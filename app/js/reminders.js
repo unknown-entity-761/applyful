@@ -117,7 +117,7 @@ export function remindersFor(apps, rawSettings, { now = new Date(), timeZone = '
       .map((app) => ({ app, key: `nudge:${app.id}:${lastChangeAt(app)}` }))
       .filter((item) => !sent.has(item.key));
     if (quiet.length > 2) {
-      out.push({ key: `nudges:${date}`, keys: quiet.map((item) => item.key), kind: 'nudge', title: `${quiet.length} applications have had no reply`, body: 'Open Foliofy to mark any as Ghosted.', url: '#/' });
+      out.push({ key: `nudges:${date}`, keys: quiet.map((item) => item.key), kind: 'nudge', title: `${quiet.length} applications have had no reply`, body: 'Open Applyful to mark any as Ghosted.', url: '#/' });
     } else {
       for (const { app, key } of quiet) {
         const weeks = weeksWaiting(app, now);

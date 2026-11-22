@@ -1,10 +1,10 @@
 // Notifications on this device (version 4, web notifications for now; decided
 // 23 Nov 2026). The browser gives the app a private "push address"; it's saved with
-// your reminder settings on Foliofy's server, and a small job there
+// your reminder settings on Applyful's server, and a small job there
 // (supabase/functions/send-reminders) sends reminders at your chosen time.
 //
 // That job can only see what's online, so notifications need an account or the online
-// copy. On iPhone they only work once Foliofy is on the Home Screen.
+// copy. On iPhone they only work once Applyful is on the Home Screen.
 //
 // Settings are also kept on the device: Home and each application use them to show
 // nudges in the app itself, with or without notifications.
@@ -58,7 +58,7 @@ async function rpc(name, body) {
       body: JSON.stringify(body),
     });
   } catch {
-    throw new Error('Couldn’t reach Foliofy’s server. Check your connection and try again.');
+    throw new Error('Couldn’t reach Applyful’s server. Check your connection and try again.');
   }
   if (!response.ok) throw new Error('Couldn’t save your notification settings just now. Try again in a minute.');
 }
@@ -83,7 +83,7 @@ async function saveOnServer(subscription, settings) {
 export async function enablePush() {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error(permission === 'denied'
-    ? 'Notifications are blocked for Foliofy. Allow them in your browser’s site settings, then try again.'
+    ? 'Notifications are blocked for Applyful. Allow them in your browser’s site settings, then try again.'
     : 'Notifications weren’t turned on.');
   const registration = await navigator.serviceWorker.ready;
   const subscription = (await registration.pushManager.getSubscription())
@@ -123,7 +123,7 @@ export async function sendTestNotification() {
       body: JSON.stringify({ test: true }),
     });
   } catch {
-    throw new Error('Couldn’t reach Foliofy’s server. Check your connection and try again.');
+    throw new Error('Couldn’t reach Applyful’s server. Check your connection and try again.');
   }
   if (response.status === 404) throw new Error('The reminders job isn’t set up on the server yet.');
   if (!response.ok) throw new Error('The test notification couldn’t be sent just now.');

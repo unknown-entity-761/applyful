@@ -44,7 +44,7 @@ export async function renderAccount(ctx) {
         </section>`
       : html`
         <section class="panel">
-          <h2 class="panel-title">${icon('user')} Sign in to Foliofy</h2>
+          <h2 class="panel-title">${icon('user')} Sign in to Applyful</h2>
           <p>An account will keep your applications and profile the same on your phone and your computer, and back them up for you.</p>
           ${dataHome() === 'online-copy'
             ? html`<p class="hint">It’s optional. Without one, your data is kept on this device, with an online copy that only this browser can open (Settings, Backup, restore and storage).</p>
@@ -60,10 +60,10 @@ export async function renderAccount(ctx) {
   wireBack(screen, '/settings');
   // Signed in or out from elsewhere (another tab, or Cancel on the first sync): redraw.
   const onAuth = () => {
-    window.removeEventListener('foliofy:auth-changed', onAuth);
+    window.removeEventListener('applyful:auth-changed', onAuth);
     if (screen.isConnected) renderAccount({ active: true });
   };
-  window.addEventListener('foliofy:auth-changed', onAuth);
+  window.addEventListener('applyful:auth-changed', onAuth);
   const line = screen.querySelector('[data-sync-status]');
   if (line) {
     const show = () => {
@@ -75,8 +75,8 @@ export async function renderAccount(ctx) {
         : now.lastSyncedAt ? `Synced ${formatSyncTime(now.lastSyncedAt)}` : 'Not synced yet';
     };
     show();
-    const onChange = () => (line.isConnected ? show() : window.removeEventListener('foliofy:sync-changed', onChange));
-    window.addEventListener('foliofy:sync-changed', onChange);
+    const onChange = () => (line.isConnected ? show() : window.removeEventListener('applyful:sync-changed', onChange));
+    window.addEventListener('applyful:sync-changed', onChange);
     screen.querySelector('[data-action="sync-now"]')?.addEventListener('click', () => syncNow());
   }
   screen.querySelector('[data-action="sign-out"]')?.addEventListener('click', async () => {
@@ -195,7 +195,7 @@ export async function renderSignUp(ctx) {
     const message = form.querySelector('.form-error');
     if (!form.elements.age.checked || !form.elements.terms.checked) {
       message.textContent = !form.elements.age.checked
-        ? `Foliofy is for people aged ${MIN_AGE} and over. Tick the box to confirm.`
+        ? `Applyful is for people aged ${MIN_AGE} and over. Tick the box to confirm.`
         : 'Tick the box to agree to the Terms of use and Privacy policy.';
       message.hidden = false;
       message.focus();
@@ -249,7 +249,7 @@ export async function renderLogIn(ctx) {
         <button type="submit" class="btn primary block">Log in</button>
         <a class="link-btn quiet" href="#/account/reset">Forgot your password?</a>
       </form>
-      <p class="hint">New to Foliofy? <a href="#/account/sign-up">Create an account</a></p>
+      <p class="hint">New to Applyful? <a href="#/account/sign-up">Create an account</a></p>
     </main>
   `);
   wireBack(screen, '/account');

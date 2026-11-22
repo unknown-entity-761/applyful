@@ -21,7 +21,7 @@ test('the calendar file is an all-day event on the follow-up date, with a 9 am r
   assert.ok(lines.includes('DTSTART;VALUE=DATE:20261231'));
   assert.ok(lines.includes('DTEND;VALUE=DATE:20270101'), 'ends the next day, across the new year');
   assert.ok(lines.includes('TRIGGER;RELATED=START:PT9H'));
-  assert.ok(lines.includes('UID:followup-abc-123@foliofy.app'));
+  assert.ok(lines.includes('UID:followup-abc-123@applyful.app'));
   assert.ok(lines.includes('DTSTAMP:20261122T063000Z'));
   assert.ok(ics.endsWith('END:VCALENDAR\r\n'));
 });

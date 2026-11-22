@@ -3,7 +3,7 @@
   "version": "3.0.0",
   "private": true,
   "type": "module",
-  "description": "Foliofy, a phone-first job application tracker. The app itself is plain files in app/; npm only fetches the PDF reader (pdf.js) and OCR engine (Tesseract) that npm run vendor copies into app/vendor.",
+  "description": "Applyful, a phone-first job application tracker. The app itself is plain files in app/; npm only fetches the PDF reader (pdf.js) and OCR engine (Tesseract) that npm run vendor copies into app/vendor.",
   "scripts": {
     "test": "node --test \"tests/*.test.mjs\"",
     "build-sw": "node tools/build-sw.mjs",

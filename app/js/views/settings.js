@@ -95,7 +95,7 @@ export async function renderSettings(ctx) {
 
   screen.querySelector('[data-setting="usage"]').addEventListener('change', (event) => {
     setUsageConsent(event.target.checked);
-    showToast(event.target.checked ? 'Analytics cookies on. Thanks for helping improve Foliofy.' : 'Analytics cookies off');
+    showToast(event.target.checked ? 'Analytics cookies on. Thanks for helping improve Applyful.' : 'Analytics cookies off');
   });
 
   mount(screen, ctx);

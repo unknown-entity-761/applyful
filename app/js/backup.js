@@ -125,7 +125,7 @@ export async function buildBackup() {
 export async function exportBackup() {
   const payload = await buildBackup();
   const { applications } = payload;
-  const filename = `job-tracker-backup-${todayISO()}.json`;
+  const filename = `applyful-backup-${todayISO()}.json`;
   const file = new File([JSON.stringify(payload, null, 2)], filename, { type: 'application/json' });
 
   // On phones, the share sheet makes it easy to save to Files, Google Drive or iCloud.
@@ -155,7 +155,7 @@ export async function exportBackup() {
 }
 
 export async function importBackup(file) {
-  const notABackup = new Error(`That file isn’t a ${APP_NAME} backup.`);
+  const notABackup = new Error(`That file isn’t an ${APP_NAME} backup.`);
   if (file.size > MAX_BACKUP_BYTES) throw notABackup;
 
   let data;

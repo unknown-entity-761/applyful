@@ -57,7 +57,7 @@ export function followUpIcs(app, now = new Date()) {
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
     // The same id every time, so adding it again updates the event in most calendar apps.
-    `UID:followup-${app.id}@foliofy.app`,
+    `UID:followup-${app.id}@applyful.app`,
     `DTSTAMP:${stamp}`,
     `DTSTART;VALUE=DATE:${compactDate(app.followUpOn)}`,
     `DTEND;VALUE=DATE:${compactDate(addDays(app.followUpOn, 1))}`,

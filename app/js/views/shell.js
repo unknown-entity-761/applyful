@@ -63,7 +63,7 @@ export function initShell() {
 
   // Data changed (saved, deleted, restored): keep the list beside the details current.
   let pending = 0;
-  window.addEventListener('foliofy:data-changed', () => {
+  window.addEventListener('applyful:data-changed', () => {
     if (!document.body.classList.contains('split')) return;
     clearTimeout(pending);
     pending = setTimeout(renderPane, 50);

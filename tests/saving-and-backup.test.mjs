@@ -91,8 +91,8 @@ test('backups from the first version (a plain list) still restore', async () => 
 });
 
 test('files that are not backups are refused with a clear message', async () => {
-  await assert.rejects(importBackup(backupFile('this is not json')), /isn’t a Foliofy backup/);
-  await assert.rejects(importBackup(backupFile({ hello: 'world' })), /isn’t a Foliofy backup/);
+  await assert.rejects(importBackup(backupFile('this is not json')), /isn’t an Applyful backup/);
+  await assert.rejects(importBackup(backupFile({ hello: 'world' })), /isn’t an Applyful backup/);
   await assert.rejects(
     importBackup(backupFile({ schemaVersion: SCHEMA_VERSION + 1, applications: [] })),
     /newer version of the app/,

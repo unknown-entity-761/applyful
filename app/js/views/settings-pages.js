@@ -15,10 +15,10 @@ import { NUDGE_WEEK_CHOICES } from '../reminders.js';
 
 const PUSH_NOTES = {
   'not-set-up': 'Notifications aren’t set up for this app yet.',
-  unsupported: 'This browser can’t show notifications from Foliofy. Try Chrome, Edge, Firefox or Safari.',
-  'needs-home-screen': 'On iPhone, notifications only work once Foliofy is on your Home Screen. Add it, then open Foliofy from there and come back here.',
-  'needs-data-online': 'Notifications are sent by Foliofy’s server at the time you choose, so it needs your applications online. Sign in, or keep a copy online (Settings, Backup, restore and storage).',
-  blocked: 'Notifications are blocked for Foliofy in this browser. Allow them in the browser’s site settings, then come back here.',
+  unsupported: 'This browser can’t show notifications from Applyful. Try Chrome, Edge, Firefox or Safari.',
+  'needs-home-screen': 'On iPhone, notifications only work once Applyful is on your Home Screen. Add it, then open Applyful from there and come back here.',
+  'needs-data-online': 'Notifications are sent by Applyful’s server at the time you choose, so it needs your applications online. Sign in, or keep a copy online (Settings, Backup, restore and storage).',
+  blocked: 'Notifications are blocked for Applyful in this browser. Allow them in the browser’s site settings, then come back here.',
 };
 
 export async function renderNotifications(ctx) {
@@ -41,7 +41,7 @@ export async function renderNotifications(ctx) {
         <label class="switch-row">
           <span class="switch-text">
             <span class="switch-title">Notifications on this device</span>
-            <span class="switch-desc">${on ? 'On. Reminders arrive at the time below.' : 'Reminders on this phone or computer, even when Foliofy is closed.'}</span>
+            <span class="switch-desc">${on ? 'On. Reminders arrive at the time below.' : 'Reminders on this phone or computer, even when Applyful is closed.'}</span>
           </span>
           <input type="checkbox" class="switch" role="switch" data-setting="push" ${on && raw('checked')} ${!on && !canTurnOn && raw('disabled')}>
         </label>
@@ -192,7 +192,7 @@ export async function renderData(ctx) {
           <label class="switch-row">
             <span class="switch-text">
               <span class="switch-title">Keep a copy online</span>
-              <span class="switch-desc">Your applications, profile, CV and LinkedIn files and CV check, kept on Foliofy’s server and linked to this browser. If the app’s storage on this device is lost, they come back. Turning this off deletes the online copy.</span>
+              <span class="switch-desc">Your applications, profile, CV and LinkedIn files and CV check, kept on Applyful’s server and linked to this browser. If the app’s storage on this device is lost, they come back. Turning this off deletes the online copy.</span>
             </span>
             <input type="checkbox" class="switch" role="switch" data-setting="online-copy" ${onlineCopyChoice() === 'on' && raw('checked')}>
           </label>
@@ -261,7 +261,7 @@ export async function renderData(ctx) {
 
   screen.querySelector('[data-setting="online-copy"]')?.addEventListener('change', async (event) => {
     const on = event.target.checked;
-    if (!on && onlineUser()?.guest && !window.confirm('Turn off the online copy? It will be deleted from Foliofy’s server. Everything stays on this device.')) {
+    if (!on && onlineUser()?.guest && !window.confirm('Turn off the online copy? It will be deleted from Applyful’s server. Everything stays on this device.')) {
       event.target.checked = true;
       return;
     }
