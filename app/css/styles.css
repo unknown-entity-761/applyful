@@ -181,6 +181,19 @@ h1:focus { outline: none; }
 
 .welcome { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .welcome-link { align-self: flex-start; font-size: 15px; font-weight: 600; }
+/* "Preview" next to the app name on Home; opens What's coming. */
+.preview-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  vertical-align: 1px;
+}
 .welcome-app {
   font-size: 13px;
   font-weight: 700;

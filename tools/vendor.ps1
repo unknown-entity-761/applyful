@@ -5,7 +5,7 @@
 #
 # To update:  npm.cmd install <package>@<version> --save-dev --save-exact
 #             npm.cmd run vendor
-# then bump CACHE in app/sw.js.
+# then npm.cmd test. The offline file list in app/sw.js updates itself on publish.
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot

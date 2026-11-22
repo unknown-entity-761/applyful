@@ -273,12 +273,63 @@ export const LEGAL_PAGES = {
     ],
   },
 
+  coming: {
+    title: 'What’s coming',
+    updated: '',
+    draft: false,
+    intro: 'Foliofy is a preview for testers, so some features aren’t built yet. If something seems to be missing, it’s probably on this list.',
+    sections: [
+      {
+        heading: 'What works now',
+        list: [
+          'Tracking applications: status, portal, the email you used, follow-up dates, notes and history.',
+          'Filling in your profile from your CV or LinkedIn PDF, on this device and without AI. Scanned CVs are read with OCR.',
+          'Checking your CV: a score, what to fix first and what’s already strong.',
+          'Backing up to a file and restoring it, on this phone or a new one.',
+        ],
+        after: ['In this preview, everything is saved only on this device, so back up now and then.'],
+      },
+      {
+        heading: 'Coming soon',
+        list: ['Adding follow-up dates to your phone’s calendar, so you get a reminder.'],
+      },
+      {
+        heading: 'Later',
+        list: [
+          'An account (email, Google or Apple), with your data on every device you use and backed up automatically.',
+          'Phone notifications for follow-ups, and a nudge when a company hasn’t replied.',
+          'Locking the app with a PIN or Face ID.',
+          'Apps for Android and iPhone.',
+        ],
+      },
+      {
+        heading: 'Further ahead',
+        list: [
+          'Cover letters and a job match check, written with AI, that you can edit before using.',
+          'An AI review of your CV, with rewrites you can accept.',
+          'Adding and updating applications from your Gmail, with recruiter contacts.',
+          'A new look, more languages, and Foliofy on Google Play and the App Store.',
+        ],
+      },
+      {
+        heading: 'Found a problem?',
+        paragraphs: ['If something on the “What works now” list doesn’t work, tell us. See Help and feedback.'],
+      },
+    ],
+  },
+
   help: {
     title: 'Help and feedback',
     updated: '',
     draft: false,
     intro: 'Quick answers to common questions.',
     sections: [
+      {
+        heading: 'Something missing?',
+        paragraphs: [
+          'Foliofy is a preview, so some features aren’t built yet. To see what’s coming, go to Profile, tap the menu button (three lines), then What’s coming.',
+        ],
+      },
       {
         heading: 'Adding an application',
         paragraphs: ['Tap Add in the bar at the bottom. Only the company and job title are required.'],

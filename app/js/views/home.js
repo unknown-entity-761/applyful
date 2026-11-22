@@ -33,7 +33,7 @@ export async function renderHome(ctx) {
   const screen = createScreen(html`
     <header class="topbar topbar-large">
       <div class="welcome">
-        <p class="welcome-app">${APP_NAME}</p>
+        <p class="welcome-app">${APP_NAME} <a class="preview-tag" href="#/legal/coming">Preview</a></p>
         <h1 class="topbar-title" tabindex="-1">${greeting}</h1>
         ${!firstName && !askForName && html`<a class="welcome-link" href="#/profile/edit">Add your name</a>`}
       </div>

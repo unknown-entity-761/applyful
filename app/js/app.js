@@ -5,6 +5,7 @@ import * as store from './store.js';
 import { route, start, navigate } from './router.js';
 import { showToast } from './ui.js';
 import { applyTheme } from './theme.js';
+import { APP_NAME } from './config.js';
 import { renderHome } from './views/home.js';
 import { renderApplications } from './views/applications.js';
 import { renderActivity } from './views/activity.js';
@@ -53,11 +54,47 @@ async function boot() {
   registerServiceWorker();
 }
 
+// Phones keep apps open in the background for days, so the app also looks for a
+// new version whenever it comes back on screen, at most this often.
+const UPDATE_CHECK_MS = 15 * 60 * 1000;
+
 function registerServiceWorker() {
   // Service workers only run on https pages (and localhost while developing).
   if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
-  navigator.serviceWorker.register('./sw.js').catch((error) => {
-    console.warn('Offline mode is unavailable:', error);
+
+  // The first install on this device isn't an update; only later versions are.
+  let hasVersion = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hasVersion) offerReload();
+    hasVersion = true;
+  });
+
+  navigator.serviceWorker
+    .register('./sw.js')
+    .then((registration) => {
+      let lastCheck = Date.now();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible' || Date.now() - lastCheck < UPDATE_CHECK_MS) return;
+        lastCheck = Date.now();
+        registration.update().catch(() => {}); // offline: try again next time
+      });
+    })
+    .catch((error) => {
+      console.warn('Offline mode is unavailable:', error);
+    });
+}
+
+/** A new version has been downloaded. The screen still runs the old one until it reloads. */
+function offerReload() {
+  // If it arrived while the app was in the background, wait until it's on screen again.
+  if (document.visibilityState === 'hidden') {
+    document.addEventListener('visibilitychange', offerReload, { once: true });
+    return;
+  }
+  showToast(`A new version of ${APP_NAME} is ready.`, {
+    actionLabel: 'Reload',
+    onAction: () => window.location.reload(),
+    duration: 30_000,
   });
 }
 

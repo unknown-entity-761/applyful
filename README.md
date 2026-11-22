@@ -48,7 +48,34 @@ Open it from **Profile → CV and LinkedIn → Check your CV**. It reads your CV
 
 The rest of the PRD's version 3 needs the AI service: rewrites you can accept into your profile, a full spelling and grammar check, and checking against a job.
 
-The PDF reader is [pdf.js](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2.0), copied into `app/vendor/pdfjs` so it works offline. The OCR engine is [Tesseract.js](https://github.com/naptha/tesseract.js) (Apache-2.0) with the compact English model, in `app/vendor/tesseract`; it isn't in the offline file list, so it's only downloaded when needed. To update either: `npm.cmd install <package>@<version> --save-dev --save-exact`, then `npm.cmd run vendor`, then bump `CACHE` in `app/sw.js`.
+The PDF reader is [pdf.js](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2.0), copied into `app/vendor/pdfjs` so it works offline. The OCR engine is [Tesseract.js](https://github.com/naptha/tesseract.js) (Apache-2.0) with the compact English model, in `app/vendor/tesseract`; it isn't in the offline file list, so it's only downloaded when needed. To update either: `npm.cmd install <package>@<version> --save-dev --save-exact`, then `npm.cmd run vendor`, then `npm.cmd test`.
+
+## Preview label
+
+The app is labelled a **preview** for testers: a "Preview" tag next to the name on Home, and "version 3.0 preview" in Settings. Both open or sit next to **What's coming** (Settings → About), which lists what works now and what's planned, so missing features aren't reported as bugs. The text is in `app/js/content/legal.js` (`coming`).
+
+## Tests
+
+```powershell
+npm.cmd test
+```
+
+Runs everything in `tests/` with Node's built-in test runner (Node 22 or newer; nothing to install):
+
+- `cv-read`: reading PDFs, Word files and scanned PDFs, and the messages for files that can't be read
+- `cv-parse`: filling in the profile from a CV or LinkedIn PDF, and "your edits win" when merging
+- `cv-check`: the CV check's score, fixes and strengths on three sample CVs
+- `saving-and-backup`: saving, and how a restore merges (Node has no IndexedDB, so this uses the store's in-memory mode)
+- `applications`: cleaning input, required fields, status history, follow-ups, sorting
+- `offline-files`: every file the app imports exists and is kept for offline use
+
+The sample CVs are in `tests/fixtures` (the HTML they were printed from is in `tests/fixtures/sources`); the Word CV is built in `tests/helpers.mjs`. If you change a CV rule on purpose, update the expected results in the test.
+
+## Releasing a new version
+
+Push to `main`. GitHub then runs the tests, writes the offline file list and cache name into `app/sw.js` (`tools/build-sw.mjs`), and publishes. If a test fails, nothing is published and the live app stays as it was.
+
+The cache name comes from the files' contents, so every change gives a new one. Phones notice it the next time the app opens or comes back on screen, and show **"A new version of Foliofy is ready. Reload"**. To update `sw.js` on this computer too (for example before trying offline mode locally), run `npm.cmd run build-sw`.
 
 ## How it's built
 
@@ -101,7 +128,9 @@ flowchart LR
 | `app/js/views/profile-import.js` | "Fill in my profile from my CV": reading, the OCR offer, then the review |
 | `app/vendor/pdfjs/` | pdf.js, the PDF reader (copied from npm by `tools/vendor.ps1`) |
 | `app/vendor/tesseract/` | Tesseract OCR and its English model (copied from npm by `tools/vendor.ps1`) |
-| `package.json` | Only used to fetch pdf.js with npm; the app itself has no build step |
+| `package.json` | Scripts for the tests and the offline file list, and the readers npm fetches; the app itself has no build step |
+| `tests/` | Automated tests and sample CVs (`npm.cmd test`) |
+| `tools/build-sw.mjs` | Writes the offline file list and cache name into `app/sw.js` (`npm.cmd run build-sw`; GitHub runs it before publishing) |
 | `app/js/views/fields.js` | Labelled form fields and error messages shared by the forms |
 | `app/css/styles.css` | All styles; colors are variables, so dark mode is one block |
 | `app/sw.js` | Service worker: keeps the app working with no signal |
@@ -158,4 +187,4 @@ Google Play and App Store versions are planned for version 4, together with acco
 
 - Data lives only on the device it was entered on. Back up regularly from Settings.
 - Clearing the browser's site data deletes the applications. On iPhone, the home screen app is less likely to be cleared than a Safari tab.
-- The app loads fresh files whenever it's online, so edits show up on the next open. If you add or rename a file in `app/`, add it to `APP_FILES` in `app/sw.js` and bump `CACHE` (for example to `job-tracker-v2`) so the offline copy stays complete.
+- The app loads fresh files whenever it's online, so edits show up on the next open. The offline file list in `app/sw.js` is written automatically (see Releasing a new version), so new or renamed files are picked up without editing it.

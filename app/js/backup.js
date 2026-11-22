@@ -12,15 +12,21 @@ import { APP_NAME } from './config.js';
 const APP_ID = 'job-tracker';
 const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 
-export async function exportBackup() {
+/** Everything a backup file holds. */
+export async function buildBackup() {
   const [applications, profile] = await Promise.all([listApplications(), getProfile()]);
-  const payload = {
+  return {
     app: APP_ID,
     schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     applications,
     profile: isProfileEmpty(profile) ? undefined : profile,
   };
+}
+
+export async function exportBackup() {
+  const payload = await buildBackup();
+  const { applications } = payload;
   const filename = `job-tracker-backup-${todayISO()}.json`;
   const file = new File([JSON.stringify(payload, null, 2)], filename, { type: 'application/json' });
 

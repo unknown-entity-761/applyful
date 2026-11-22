@@ -60,6 +60,7 @@ export async function renderSettings(ctx) {
       <section class="settings-group" aria-labelledby="set-about">
         <h2 class="group-title" id="set-about">About</h2>
         <ul class="menu">
+          ${menuRow('#/legal/coming', 'chart', 'What’s coming', 'Preview')}
           ${menuRow('#/legal/pds', 'file', 'Product disclosure statement')}
           ${menuRow('#/legal/terms', 'file', 'Terms of use')}
           ${menuRow('#/legal/help', 'help', 'Help and feedback')}

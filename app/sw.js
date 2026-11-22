@@ -1,26 +1,25 @@
 // Service worker: keeps a copy of the app's files so it opens even with no signal.
 // Strategy: try the network first (so updates show up right away), and fall back
 // to the saved copy when offline. Your data isn't here; it lives in IndexedDB.
+//
+// CACHE and APP_FILES are written by tools/build-sw.mjs (npm run build-sw), which
+// GitHub also runs before every publish. Don't edit them by hand. The cache name
+// changes whenever a file changes, so phones pick up each new version.
 
-const CACHE = 'job-tracker-v7';
+const CACHE = 'foliofy-02cfe729f068';
 
 const APP_FILES = [
   './',
   './index.html',
-  './manifest.webmanifest',
   './css/styles.css',
-  './js/app.js',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon.svg',
   './js/analytics.js',
-  './js/config.js',
-  './js/router.js',
-  './js/store.js',
-  './js/model.js',
-  './js/ui.js',
-  './js/prefs.js',
-  './js/profile.js',
-  './js/theme.js',
+  './js/app.js',
   './js/backup.js',
-  './js/install.js',
+  './js/config.js',
   './js/content/legal.js',
   './js/cv/extract.js',
   './js/cv/ocr.js',
@@ -28,26 +27,31 @@ const APP_FILES = [
   './js/cv/rules.js',
   './js/cv/text.js',
   './js/cv/zip.js',
-  './vendor/pdfjs/pdf.min.mjs',
-  './vendor/pdfjs/pdf.worker.min.mjs',
+  './js/install.js',
+  './js/model.js',
+  './js/prefs.js',
+  './js/profile.js',
+  './js/router.js',
+  './js/store.js',
+  './js/theme.js',
+  './js/ui.js',
+  './js/views/activity.js',
+  './js/views/applications.js',
   './js/views/components.js',
   './js/views/cv-check.js',
+  './js/views/detail.js',
   './js/views/fields.js',
+  './js/views/form.js',
   './js/views/home.js',
-  './js/views/applications.js',
-  './js/views/activity.js',
-  './js/views/profile.js',
+  './js/views/legal.js',
   './js/views/profile-edit.js',
   './js/views/profile-import.js',
-  './js/views/form.js',
-  './js/views/detail.js',
-  './js/views/settings.js',
+  './js/views/profile.js',
   './js/views/settings-pages.js',
-  './js/views/legal.js',
-  './icons/icon.svg',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/apple-touch-icon.png',
+  './js/views/settings.js',
+  './manifest.webmanifest',
+  './vendor/pdfjs/pdf.min.mjs',
+  './vendor/pdfjs/pdf.worker.min.mjs',
 ];
 
 self.addEventListener('install', (event) => {

@@ -1,5 +1,9 @@
 # Keep every text file with Unix line endings (LF), on Windows too, so Git doesn't
-# rewrite files or warn about line endings. Images stay untouched.
+# rewrite files or warn about line endings. Images, PDFs and other binary files stay untouched.
 * text=auto eol=lf
 *.png binary
 *.ico binary
+*.pdf binary
+*.docx binary
+*.gz binary
+*.wasm binary
