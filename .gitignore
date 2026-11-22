@@ -4,3 +4,8 @@ node_modules/
 # Windows clutter
 Thumbs.db
 desktop.ini
+
+# Files downloaded while trying the app in the preview browser
+/*.ics
+/*.json.download
+/job-tracker-backup-*.json
