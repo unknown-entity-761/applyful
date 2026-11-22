@@ -32,14 +32,23 @@ function currentSort() {
   return isSortId(saved) ? saved : DEFAULT_SORT;
 }
 
-export async function renderApplications(ctx) {
+/**
+ * The Applications tab. With pane: true (computer layout) it returns the list for the
+ * left pane instead of showing it: a smaller heading, an Add button and no tab bar.
+ */
+export async function renderApplications(ctx, { pane = false } = {}) {
   const apps = await listApplications();
   let sortId = currentSort();
 
   const screen = createScreen(html`
-    <header class="topbar topbar-large">
-      <h1 class="topbar-title" tabindex="-1">Applications</h1>
-    </header>
+    ${pane
+      ? html`<header class="pane-header">
+          <h2 class="pane-title">Applications</h2>
+          <a class="btn small primary" href="#/new">${icon('plus')} Add</a>
+        </header>`
+      : html`<header class="topbar topbar-large">
+          <h1 class="topbar-title" tabindex="-1">Applications</h1>
+        </header>`}
     <main class="content">
       ${apps.length === 0 ? emptyState() : html`
         <label class="search">
@@ -64,7 +73,7 @@ export async function renderApplications(ctx) {
         </div>
         <div class="list-area"></div>`}
     </main>
-    ${tabBar('applications')}
+    ${!pane && tabBar('applications')}
   `);
 
   const area = screen.querySelector('.list-area');
@@ -106,14 +115,32 @@ export async function renderApplications(ctx) {
         }
         update();
       }
-      if (event.target.closest('a')) state.scrollY = window.scrollY; // remember the place before opening one
+      if (event.target.closest('a') && !pane) state.scrollY = window.scrollY; // remember the place before opening one
     });
 
     update();
-    screen.querySelector('.chip[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    if (!pane) screen.querySelector('.chip[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 
+  if (pane) return screen;
   mount(screen, ctx, state.scrollY);
+  return screen;
+}
+
+/** Jobs on a wide screen: the list is in the left pane, so this side asks you to pick one. */
+export function renderJobsStart(ctx) {
+  const screen = createScreen(html`
+    <header class="topbar topbar-large">
+      <h1 class="topbar-title" tabindex="-1">Applications</h1>
+    </header>
+    <main class="content">
+      <div class="panel calm">
+        <p><strong>Choose an application on the left</strong> to see its details here.</p>
+        <p class="muted">Or add a new one with the Add button.</p>
+      </div>
+    </main>
+  `);
+  mount(screen, ctx);
 }
 
 function passesFilter(app) {

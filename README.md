@@ -57,6 +57,10 @@ The PDF reader is [pdf.js](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2
 
 The first time the app opens on a device with nothing saved, it starts at **#/welcome**: upload a CV (read on the device, then the profile form opens with what was found highlighted) or fill it in by hand. Only the first name is required, nothing is saved until Confirm, and "Skip for now" goes to Home. When accounts arrive, this runs straight after signing up. Code: `app/js/views/welcome.js`, plus a `setup` option in `profile-import.js` and `profile-edit.js`.
 
+### Computer layout
+
+On screens 960 pixels wide or more, a side menu replaces the bottom tab bar, and on Jobs the applications list stays on the left with an application's details on the right (`app/js/views/shell.js`, and the "Computer layout" block at the end of `styles.css`). Phones are unchanged. Screens that save data send a `foliofy:data-changed` event (from `store.js`), which keeps the list beside the details up to date.
+
 ## Preview label
 
 The app is labelled a **preview** for testers: a "Preview" tag next to the name on Home, and "version 3.0 preview" in Settings. Both open or sit next to **What's coming** (Settings → About), which lists what works now and what's planned, so missing features aren't reported as bugs. The text is in `app/js/content/legal.js` (`coming`).
@@ -132,6 +136,7 @@ flowchart LR
 | `app/js/cv/parse.js` | Reads a CV or LinkedIn PDF into profile fields, with plain rules (no AI) |
 | `app/js/cv/ocr.js` | Reads scanned PDFs with Tesseract OCR, loaded only when needed |
 | `app/js/views/cv-check.js` | The CV check screen |
+| `app/js/views/shell.js` | Computer layout: the side menu and the applications list beside the details |
 | `app/js/views/welcome.js` | First-time setup: upload a CV or fill in the profile by hand |
 | `app/js/calendar.js` | "Add to calendar" for follow-up dates: a calendar file or a Google Calendar link |
 | `app/js/views/profile-import.js` | "Fill in my profile from my CV": reading, the OCR offer, then the review |

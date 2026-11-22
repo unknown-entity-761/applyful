@@ -79,6 +79,15 @@ async function run(storeName, txMode, work) {
   });
 }
 
+// ---- Telling the screens that data changed ----
+// The computer layout keeps the applications list on screen next to the details,
+// so it listens for this to stay up to date. (Sync will use it too.)
+
+function notifyChange(storeName) {
+  if (typeof window === 'undefined' || typeof CustomEvent !== 'function') return;
+  window.dispatchEvent(new CustomEvent('foliofy:data-changed', { detail: { store: storeName } }));
+}
+
 // ---- Generic record helpers ----
 
 export async function getRecord(storeName, id) {
@@ -96,22 +105,25 @@ export async function putRecords(storeName, records) {
   if (records.length === 0) return;
   if (mode === 'memory') {
     for (const record of records) memory[storeName].set(record.id, copy(record));
-    return;
+  } else {
+    await run(storeName, 'readwrite', (store) => {
+      for (const record of records) store.put(record);
+      return null;
+    });
   }
-  await run(storeName, 'readwrite', (store) => {
-    for (const record of records) store.put(record);
-    return null;
-  });
+  notifyChange(storeName);
 }
 
 export async function deleteRecord(storeName, id) {
   if (mode === 'memory') memory[storeName].delete(id);
   else await run(storeName, 'readwrite', (store) => store.delete(id));
+  notifyChange(storeName);
 }
 
 export async function clearStore(storeName) {
   if (mode === 'memory') memory[storeName].clear();
   else await run(storeName, 'readwrite', (store) => store.clear());
+  notifyChange(storeName);
 }
 
 // ---- Applications ----

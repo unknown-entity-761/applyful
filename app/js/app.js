@@ -7,7 +7,8 @@ import { showToast } from './ui.js';
 import { applyTheme } from './theme.js';
 import { APP_NAME } from './config.js';
 import { renderHome } from './views/home.js';
-import { renderApplications } from './views/applications.js';
+import { renderApplications, renderJobsStart } from './views/applications.js';
+import { initShell, isWide } from './views/shell.js';
 import { renderActivity } from './views/activity.js';
 import { renderProfile } from './views/profile.js';
 import { renderProfileEdit } from './views/profile-edit.js';
@@ -33,9 +34,11 @@ async function boot() {
     banner.hidden = false;
   }
 
+  initShell();
+
   // Tabs
   route('/', (_, ctx) => renderHome(ctx));
-  route('/applications', (_, ctx) => renderApplications(ctx));
+  route('/applications', (_, ctx) => (isWide() ? renderJobsStart(ctx) : renderApplications(ctx)));
   route('/activity', (_, ctx) => renderActivity(ctx));
   route('/profile', (_, ctx) => renderProfile(ctx));
   // Pages opened from the tabs

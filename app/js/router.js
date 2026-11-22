@@ -3,6 +3,7 @@
 // Hash addresses work on any simple web host with no server setup.
 
 const routes = [];
+const listeners = [];
 let notFound = () => {};
 let currentCtx = null;
 
@@ -28,10 +29,17 @@ function dispatch() {
     if (match) {
       const params = Object.fromEntries(keys.map((key, i) => [key, decodeURIComponent(match[i + 1])]));
       handler(params, ctx);
+      for (const listener of listeners) listener(path);
       return;
     }
   }
   notFound(ctx);
+  for (const listener of listeners) listener(path);
+}
+
+/** Calls `listener(path)` after every screen change (used by the computer layout). */
+export function onRoute(listener) {
+  listeners.push(listener);
 }
 
 /** Goes to a path. With replace: true it swaps the current history entry instead of adding one. */
