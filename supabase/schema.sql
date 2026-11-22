@@ -1,0 +1,148 @@
+-- Foliofy's online database (version 4: accounts, sync and online backup).
+--
+-- Run it once: Supabase → your project → SQL Editor → New query → paste all of this → Run.
+-- It's safe to run again: it only adds what's missing.
+--
+-- Everything is protected by row level security: a signed-in person can only read
+-- and change their own rows and files. The publishable key in the app can't get
+-- around that.
+--
+-- What's stored:
+--   applications  one row per job application; `data` is the app's own record
+--   profiles      one row per person; `data` is their profile
+--   consents      what someone agreed to (terms, privacy policy, emails) and when
+--   documents     a private file store for the CV and LinkedIn PDF, one folder per person
+-- Devices sync by comparing `updated_at` (newest copy wins, as with backups), and fetch
+-- only what changed since `synced_at`. Deleted applications are kept as `deleted = true`
+-- so the deletion reaches every device.
+
+-- ---- Tables ----
+
+create table if not exists public.applications (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  data jsonb not null,
+  updated_at timestamptz not null,
+  deleted boolean not null default false,
+  synced_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists applications_synced_at on public.applications (user_id, synced_at);
+
+create table if not exists public.profiles (
+  user_id uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz not null,
+  synced_at timestamptz not null default now()
+);
+
+create table if not exists public.consents (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  document text not null check (document in ('terms', 'privacy', 'emails')),
+  version text not null,
+  agreed boolean not null,
+  recorded_at timestamptz not null default now()
+);
+
+-- synced_at is set by the server on every change, so devices can ask for "what's new".
+create or replace function public.touch_synced_at() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.synced_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists applications_touch on public.applications;
+create trigger applications_touch before insert or update on public.applications
+  for each row execute function public.touch_synced_at();
+
+drop trigger if exists profiles_touch on public.profiles;
+create trigger profiles_touch before insert or update on public.profiles
+  for each row execute function public.touch_synced_at();
+
+-- ---- Row level security: only your own rows ----
+
+alter table public.applications enable row level security;
+alter table public.profiles enable row level security;
+alter table public.consents enable row level security;
+
+drop policy if exists "Own applications" on public.applications;
+create policy "Own applications" on public.applications
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+drop policy if exists "Own profile" on public.profiles;
+create policy "Own profile" on public.profiles
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+-- Consents are a record: they can be added and read, not changed or removed.
+drop policy if exists "Read own consents" on public.consents;
+create policy "Read own consents" on public.consents
+  for select to authenticated
+  using (user_id = (select auth.uid()));
+
+drop policy if exists "Add own consents" on public.consents;
+create policy "Add own consents" on public.consents
+  for insert to authenticated
+  with check (user_id = (select auth.uid()));
+
+-- ---- CV and LinkedIn files: a private bucket, one folder per person ----
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'documents', 'documents', false, 10485760,
+  array[
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ]
+)
+on conflict (id) do nothing;
+
+drop policy if exists "Read own documents" on storage.objects;
+create policy "Read own documents" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'documents' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "Add own documents" on storage.objects;
+create policy "Add own documents" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'documents' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "Replace own documents" on storage.objects;
+create policy "Replace own documents" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'documents' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "Remove own documents" on storage.objects;
+create policy "Remove own documents" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'documents' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- ---- Deleting your account (FOL-66) ----
+-- Removes the sign-in, and with it (on delete cascade) every row above. The app
+-- removes the person's files from the documents bucket first.
+
+create or replace function public.delete_my_account() returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;

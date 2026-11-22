@@ -61,6 +61,16 @@ The first time the app opens on a device with nothing saved, it starts at **#/we
 
 On screens 960 pixels wide or more, a side menu replaces the bottom tab bar, and on Jobs the applications list stays on the left with an application's details on the right (`app/js/views/shell.js`, and the "Computer layout" block at the end of `styles.css`). Phones are unchanged. Screens that save data send a `foliofy:data-changed` event (from `store.js`), which keeps the list beside the details up to date.
 
+### Accounts and sync (in progress)
+
+Signing in will be optional: the app keeps working without an account, and signing in adds sync across devices and online backup. The online service is [Supabase](https://supabase.com) (project in Sydney). Its address and publishable key are in `app/js/config.js`; the publishable key is meant to be public, because the database's row level security decides what each signed-in person can see. **Never put the secret key in the app.**
+
+One-time setup in the Supabase dashboard:
+
+1. **SQL Editor → New query**: paste `supabase/schema.sql` and run it. It creates the tables, the private file store for CVs, and the rules that let each person see only their own data.
+2. **Authentication → URL Configuration**: Site URL `https://unknown-entity-761.github.io/foliofy/`, and add `http://localhost:5173/**` to Redirect URLs for trying it on this computer.
+3. Google and Apple sign-in come later (they need a Google Cloud project and the paid Apple Developer account).
+
 ## Preview label
 
 The app is labelled a **preview** for testers: a "Preview" tag next to the name on Home, and "version 3.0 preview" in Settings. Both open or sit next to **What's coming** (Settings → About), which lists what works now and what's planned, so missing features aren't reported as bugs. The text is in `app/js/content/legal.js` (`coming`).
@@ -143,6 +153,7 @@ flowchart LR
 | `app/vendor/pdfjs/` | pdf.js, the PDF reader (copied from npm by `tools/vendor.ps1`) |
 | `app/vendor/tesseract/` | Tesseract OCR and its English model (copied from npm by `tools/vendor.ps1`) |
 | `package.json` | Scripts for the tests and the offline file list, and the readers npm fetches; the app itself has no build step |
+| `supabase/schema.sql` | The online database: tables, file store and security rules (run once in Supabase) |
 | `tests/` | Automated tests and sample CVs (`npm.cmd test`) |
 | `tools/build-sw.mjs` | Writes the offline file list and cache name into `app/sw.js` (`npm.cmd run build-sw`; GitHub runs it before publishing) |
 | `app/js/views/fields.js` | Labelled form fields and error messages shared by the forms |
