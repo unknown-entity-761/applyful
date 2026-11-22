@@ -13,6 +13,7 @@ import { renderActivity } from './views/activity.js';
 import { renderProfile } from './views/profile.js';
 import { renderProfileEdit } from './views/profile-edit.js';
 import { renderCvCheck } from './views/cv-check.js';
+import { renderCvHistory } from './views/cv-history.js';
 import { renderProfileImport } from './views/profile-import.js';
 import { renderForm } from './views/form.js';
 import { renderDetail } from './views/detail.js';
@@ -24,7 +25,7 @@ import { needsSetup } from './profile.js';
 import { handleAuthRedirect, currentUser } from './auth.js';
 import { startSync } from './sync.js';
 import { trackPage, setSignedInCheck } from './analytics.js';
-import { showConsentBanner } from './views/consent.js';
+import { showConsentBanner, showOnlineCopyQuestion } from './views/consent.js';
 import { renderAccount, renderSignUp, renderLogIn, renderReset, renderNewPassword } from './views/account.js';
 import './install.js';
 
@@ -53,6 +54,7 @@ async function boot() {
   route('/profile/edit', (_, ctx) => renderProfileEdit(ctx));
   route('/profile/import/:source', (params, ctx) => renderProfileImport(params, ctx));
   route('/cv-check', (_, ctx) => renderCvCheck(ctx));
+  route('/profile/cv-history', (_, ctx) => renderCvHistory(ctx));
   // Settings (the ☰ button on Profile)
   route('/settings', (_, ctx) => renderSettings(ctx));
   route('/settings/notifications', (_, ctx) => renderNotifications(ctx));
@@ -103,8 +105,10 @@ async function boot() {
   });
 
   // Signed in: keep this device and the account in step. Changes from other devices
-  // redraw the screen, unless you're in the middle of typing into a form.
+  // redraw the screen, unless you're in the middle of typing into a form. Without an
+  // account: keep this browser's online copy, once you've agreed to it.
   startSync({
+    askOnlineCopy: showOnlineCopyQuestion,
     onRemoteChanges: () => {
       const path = location.hash.replace(/^#/, '');
       const editing = /^\/(new|a\/[^/]+\/edit|profile\/(edit|import)|cv-check|welcome|account)/.test(path);

@@ -22,7 +22,7 @@ import { getPref, setPref } from './prefs.js';
 import { makeId } from './model.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, APP_VERSION } from './config.js';
 
-const CONSENT_KEY = 'jt-usage-consent'; // 'yes' | 'no' | '' (not asked yet)
+const CONSENT_KEY = 'jt-usage-consent'; // 'yes:<when>' | 'no:<when>' | '' (not asked yet)
 const CONSENT_COOKIE = 'foliofy_consent';
 const ID_COOKIE = 'foliofy_id';
 const ID_DAYS = 395; // about 13 months
@@ -49,8 +49,12 @@ function writeCookie(name, value, days) {
 
 /** 'yes', 'no', or '' when the person hasn't chosen yet (the banner shows). */
 export function consentChoice() {
-  const value = readCookie(CONSENT_COOKIE) || getPref(CONSENT_KEY, '');
-  return value === 'yes' || value === 'no' ? value : '';
+  const cookie = readCookie(CONSENT_COOKIE);
+  if (cookie === 'yes' || cookie === 'no') return cookie;
+  // Where cookies are blocked: the copy in localStorage, for 12 months like the cookie.
+  const [value, when] = String(getPref(CONSENT_KEY, '')).split(':');
+  const fresh = Number(when) > Date.now() - CONSENT_DAYS * 86400 * 1000;
+  return (value === 'yes' || value === 'no') && fresh ? value : '';
 }
 
 export function hasUsageConsent() {
@@ -59,7 +63,7 @@ export function hasUsageConsent() {
 
 export function setUsageConsent(on) {
   const value = on ? 'yes' : 'no';
-  setPref(CONSENT_KEY, value);
+  setPref(CONSENT_KEY, `${value}:${Date.now()}`);
   writeCookie(CONSENT_COOKIE, value, CONSENT_DAYS);
   // Switching off removes the analytics cookie, so a later yes starts as a new device.
   if (!on) {

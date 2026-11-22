@@ -23,7 +23,7 @@ export async function renderWelcome(ctx) {
     <main class="content">
       <section class="panel">
         <h2 class="panel-title">Let’s set up your profile</h2>
-        <p>It’s used to greet you, to check your CV, and later to fill in cover letters. It’s saved on this device, and in your account if you sign in.</p>
+        <p>It’s used to greet you, to check your CV, and later to fill in cover letters. It’s saved on this device. You can also keep a copy online, or sign in to have it on your other devices.</p>
         <div class="stack">
           <label class="btn primary block file-btn">
             ${icon('upload')} Upload your CV

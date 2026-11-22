@@ -33,7 +33,7 @@ export async function renderLegal({ page }, ctx) {
                 <table class="data-table">
                   <thead><tr>${section.table.columns.map((col) => html`<th scope="col">${col}</th>`)}</tr></thead>
                   <tbody>${section.table.rows.map((row) => html`
-                    <tr>${row.map((cell, i) => (i === 0 ? html`<th scope="row">${cell}</th>` : html`<td>${cell}</td>`))}</tr>`)}
+                    <tr>${row.map((cell, i) => (i === 0 ? html`<th scope="row">${cellText(cell)}</th>` : html`<td>${cellText(cell)}</td>`))}</tr>`)}
                   </tbody>
                 </table>
               </div>`}
@@ -44,4 +44,9 @@ export async function renderLegal({ page }, ctx) {
 
   wireBack(screen, '/settings');
   mount(screen, ctx);
+}
+
+/** A table cell: text, or { text, note } with the note as a smaller second line. */
+function cellText(cell) {
+  return typeof cell === 'object' && cell ? html`${cell.text}<span class="cell-note">${cell.note}</span>` : cell;
 }

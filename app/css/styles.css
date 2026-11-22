@@ -1001,6 +1001,7 @@ details.more p { margin-top: 6px; font-size: 14px; color: var(--text-2); }
 .data-table th,
 .data-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
 .data-table thead th { color: var(--text-2); font-size: 13px; }
+.data-table .cell-note { display: block; margin-top: 2px; color: var(--text-2); font-size: 12px; font-weight: 400; }
 
 /* ---- CV check ---- */
 

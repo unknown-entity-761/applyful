@@ -1,5 +1,6 @@
 // Backup and restore: saves every application, your profile, your CV and LinkedIn
-// files and your last CV check to a .json file, and loads one back. Restoring
+// files, your last CV check and your earlier CVs (CV history) to a .json file, and
+// loads one back. Restoring
 // merges: new applications are added, and for ones you already have, whichever copy
 // was changed most recently wins. The same goes for the profile and the files.
 //
@@ -7,13 +8,16 @@
 
 import { listApplications, putMany, getRecord, putRecords, STORES } from './store.js';
 import { SCHEMA_VERSION, normalize } from './model.js';
-import { getProfile, normalizeProfile, isProfileEmpty, DOC_KINDS, MAX_DOC_BYTES, CV_CHECK_ID, safeDocType } from './profile.js';
+import {
+  getProfile, normalizeProfile, isProfileEmpty, DOC_KINDS, MAX_DOC_BYTES, CV_CHECK_ID, safeDocType,
+  listCvVersions, versionRecordId, archiveCv, cvVersionIdOf, keepNewestCvVersions, markDocumentDeleted,
+} from './profile.js';
 import { getPref, setPref } from './prefs.js';
 import { todayISO } from './ui.js';
 import { APP_NAME } from './config.js';
 
 const APP_ID = 'job-tracker';
-const MAX_BACKUP_BYTES = 40 * 1024 * 1024; // two 10 MB files grow by a third as text, plus the rest
+const MAX_BACKUP_BYTES = 200 * 1024 * 1024; // up to 12 files of 10 MB (with CV history) grow by a third as text
 const LAST_BACKUP_KEY = 'jt-last-backup';
 const SNOOZED_UNTIL_KEY = 'jt-backup-reminder-snoozed';
 
@@ -53,14 +57,51 @@ function documentFromBackup(item) {
     size: data.byteLength,
     uploadedAt: item.uploadedAt,
     data,
+    ...(item.id === 'cv' && typeof item.versionId === 'string' && item.versionId ? { versionId: item.versionId.slice(0, 64) } : {}),
+    ...(item.id === 'cv' && isTimestamp(item.addedAt) ? { addedAt: item.addedAt } : {}),
+  };
+}
+
+/** An earlier CV from a backup, checked, or null. */
+function versionFromBackup(item) {
+  if (!item || typeof item.versionId !== 'string' || !item.versionId || typeof item.data !== 'string') return null;
+  if (!isTimestamp(item.addedAt) || !isTimestamp(item.updatedAt)) return null;
+  let data;
+  try {
+    data = fromBase64(item.data);
+  } catch {
+    return null;
+  }
+  if (data.byteLength === 0 || data.byteLength > MAX_DOC_BYTES) return null;
+  const check = item.check && Number.isFinite(item.check.score)
+    ? {
+        score: Math.max(0, Math.min(100, Math.round(item.check.score))),
+        label: String(item.check.label ?? '').slice(0, 40),
+        toFix: Math.max(0, Math.round(Number(item.check.toFix) || 0)),
+        ignored: Array.isArray(item.check.ignored) ? item.check.ignored.filter((id) => typeof id === 'string').slice(0, 50) : [],
+        checkedAt: isTimestamp(item.check.checkedAt) ? item.check.checkedAt : item.updatedAt,
+      }
+    : null;
+  const versionId = item.versionId.slice(0, 64);
+  return {
+    id: versionRecordId(versionId),
+    versionId,
+    name: String(item.name || 'CV').slice(0, 120),
+    type: safeDocType(item.type, item.name),
+    size: data.byteLength,
+    addedAt: item.addedAt,
+    check,
+    updatedAt: item.updatedAt,
+    data,
   };
 }
 
 /** Everything a backup file holds. */
 export async function buildBackup() {
-  const [applications, profile, ...saved] = await Promise.all([
+  const [applications, profile, versions, ...saved] = await Promise.all([
     listApplications(),
     getProfile(),
+    listCvVersions(),
     ...Object.keys(DOC_KINDS).map((kind) => getRecord(STORES.documents, kind)),
   ]);
   const files = saved.filter(Boolean);
@@ -74,6 +115,7 @@ export async function buildBackup() {
     profile: isProfileEmpty(profile) ? undefined : profile,
     documents: files.length ? files.map(({ data, ...doc }) => ({ ...doc, data: toBase64(data) })) : undefined,
     cvCheck: cvCheck && cvCheck.cvUploadedAt === cv.uploadedAt ? cvCheck : undefined,
+    cvVersions: versions.length ? versions.map(({ id, data, ...version }) => ({ ...version, data: toBase64(data) })) : undefined,
   };
 }
 
@@ -147,14 +189,26 @@ export async function importBackup(file) {
       if (!incoming) continue;
       const current = await getRecord(STORES.documents, incoming.id);
       if (current && current.uploadedAt >= incoming.uploadedAt) continue;
-      await putRecords(STORES.documents, [incoming]);
+      // A different CV is replaced by the backup's: keep this device's in the CV history.
+      if (incoming.id === 'cv' && current && cvVersionIdOf(current) !== cvVersionIdOf(incoming)) await archiveCv(current);
+      // Stamped as restored now, so in your account it counts as newer than a deletion
+      // made since the backup, and sync doesn't remove it again. (Its version id and
+      // when it was first added stay the same.)
+      const restored = {
+        ...incoming,
+        uploadedAt: new Date().toISOString(),
+        ...(incoming.id === 'cv' ? { versionId: cvVersionIdOf(incoming), addedAt: incoming.addedAt || incoming.uploadedAt } : {}),
+      };
+      markDocumentDeleted(incoming.id, '');
+      await putRecords(STORES.documents, [restored]);
       result.filesRestored += 1;
       // The CV check result belongs to that exact CV.
       const check = data.cvCheck;
       if (incoming.id === 'cv' && check && check.cvUploadedAt === incoming.uploadedAt && Number.isFinite(check.score)) {
         await putRecords(STORES.documents, [{
           id: CV_CHECK_ID,
-          cvUploadedAt: check.cvUploadedAt,
+          cvUploadedAt: restored.uploadedAt,
+          cvVersionId: restored.versionId,
           checkedAt: isTimestamp(check.checkedAt) ? check.checkedAt : new Date().toISOString(),
           score: Math.max(0, Math.min(100, Math.round(check.score))),
           label: String(check.label ?? '').slice(0, 40),
@@ -164,6 +218,23 @@ export async function importBackup(file) {
       }
     }
   }
+  // Earlier CVs: add the ones this device doesn't have (then keep the newest 10).
+  if (!Array.isArray(data) && Array.isArray(data?.cvVersions)) {
+    const currentCv = await getRecord(STORES.documents, 'cv');
+    let added = 0;
+    for (const item of data.cvVersions.slice(0, 50)) {
+      const incoming = versionFromBackup(item);
+      if (!incoming || incoming.versionId === cvVersionIdOf(currentCv)) continue;
+      if (await getRecord(STORES.documents, incoming.id)) continue;
+      await putRecords(STORES.documents, [incoming]);
+      added += 1;
+    }
+    if (added) {
+      await keepNewestCvVersions();
+      result.filesRestored += added;
+    }
+  }
+
   const toSave = [];
 
   for (const item of items) {

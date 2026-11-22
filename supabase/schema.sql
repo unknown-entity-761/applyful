@@ -250,3 +250,116 @@ create trigger profiles_0_keep_newest before update on public.profiles
 drop trigger if exists documents_0_keep_newest on public.documents;
 create trigger documents_0_keep_newest before update on public.documents
   for each row execute function public.keep_newest();
+
+-- =====================================================================
+-- Added 22 Nov 2026 (later): online copies without an account (guest sessions).
+-- Needs Authentication → Sign In / Providers → "Allow anonymous sign-ins" on.
+-- Guests use the same tables and rules as accounts: only their own rows and files.
+-- =====================================================================
+
+-- ---- Guests nobody has used for a year ----
+-- A guest's online copy can only be opened from the browser that made it. If that
+-- browser hasn't opened Foliofy for 12 months, the copy is deleted. The scheduled job
+-- in supabase/functions/delete-unused-guests asks for the list, deletes each guest's
+-- files, then the guest (which removes its rows). Activity = signing in or refreshing
+-- the session, which the app does whenever it's opened after an hour or more.
+
+create or replace function public.unused_guests(unused_for interval default interval '12 months')
+returns table (id uuid)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select u.id
+  from auth.users u
+  where u.is_anonymous
+    and greatest(
+      u.created_at,
+      coalesce(u.last_sign_in_at, u.created_at),
+      coalesce((select max(r.created_at) from auth.refresh_tokens r where r.user_id = u.id::text), u.created_at)
+    ) < now() - unused_for
+  order by u.created_at
+  limit 500;
+$$;
+
+revoke all on function public.unused_guests(interval) from public, anon, authenticated;
+grant execute on function public.unused_guests(interval) to service_role;
+
+-- =====================================================================
+-- Added 22 Nov 2026 (version 4.2): CV history.
+-- =====================================================================
+
+-- Which version the current CV is, and when it was first added, so every device
+-- uses the same version ids (applications can say which CV was sent).
+alter table public.documents add column if not exists version_id text check (char_length(version_id) <= 64);
+alter table public.documents add column if not exists added_at timestamptz;
+
+-- ---- Earlier CVs ----
+-- One row per earlier CV; the file is in the private 'documents' bucket at
+-- <user id>/cv-versions/<id>. A deleted one is kept as deleted = true, so the
+-- deletion reaches every device. The app keeps the newest 10.
+
+create table if not exists public.cv_versions (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null check (char_length(id) between 1 and 64),
+  name text not null default '',
+  type text not null default '',
+  size integer not null default 0,
+  added_at timestamptz,
+  cv_check jsonb check (cv_check is null or pg_column_size(cv_check) <= 20000),
+  deleted boolean not null default false,
+  updated_at timestamptz not null,
+  synced_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+drop trigger if exists cv_versions_touch on public.cv_versions;
+create trigger cv_versions_touch before insert or update on public.cv_versions
+  for each row execute function public.touch_synced_at();
+
+drop trigger if exists cv_versions_0_keep_newest on public.cv_versions;
+create trigger cv_versions_0_keep_newest before update on public.cv_versions
+  for each row execute function public.keep_newest();
+
+alter table public.cv_versions enable row level security;
+grant select, insert, update, delete on public.cv_versions to authenticated;
+
+drop policy if exists "Own CV versions" on public.cv_versions;
+create policy "Own CV versions" on public.cv_versions
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+-- =====================================================================
+-- Added 22 Nov 2026 (review): sensible size limits.
+-- Guests can be created without an email, so nobody should be able to store huge
+-- amounts through the app's tables. These are far above what the app ever sends.
+-- ("not valid" = they apply to new and changed rows; nothing already stored is checked.)
+-- =====================================================================
+
+alter table public.applications drop constraint if exists applications_data_size;
+alter table public.applications add constraint applications_data_size check (pg_column_size(data) <= 200000) not valid;
+
+alter table public.profiles drop constraint if exists profiles_data_size;
+alter table public.profiles add constraint profiles_data_size check (pg_column_size(data) <= 500000) not valid;
+
+alter table public.documents drop constraint if exists documents_cv_check_size;
+alter table public.documents add constraint documents_cv_check_size check (cv_check is null or pg_column_size(cv_check) <= 20000) not valid;
+
+-- At most 5,000 applications per person (deleted ones included).
+create or replace function public.applications_limit() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if (select count(*) from public.applications where user_id = new.user_id) >= 5000 then
+    raise exception 'Too many applications for one person';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists applications_limit on public.applications;
+create trigger applications_limit before insert on public.applications
+  for each row execute function public.applications_limit();

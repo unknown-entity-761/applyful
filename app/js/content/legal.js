@@ -5,17 +5,19 @@
 //
 // They describe:
 //   - your applications, profile, files and CV check results, kept on the device, and
-//     in your account too if you're signed in (see js/sync.js), and
+//     in your account too if you're signed in, or in an online copy for that browser if
+//     you choose one without an account (see js/sync.js and js/auth.js), and
 //   - analytics cookies, only with consent (cookie banner, or Settings → Analytics
 //     cookies), to improve your experience. See js/analytics.js.
 //
 // Each page: { title, updated, draft, intro, sections: [{ heading, paragraphs?, list?, after?, table? }] }
 // In a section, `paragraphs` show first, then `list`, then `after`, then `table`.
+// A table cell is text, or { text, note } for a smaller second line (like a cookie's name).
 
 import { APP_NAME } from '../config.js';
 
 const UPDATED = '22 November 2026';
-const SETTING = 'Profile → menu (three lines) → Analytics cookies';
+const SETTING = 'Settings → Analytics cookies (on a phone, Settings is the menu button on Profile)';
 
 export const LEGAL_PAGES = {
   privacy: {
@@ -23,7 +25,7 @@ export const LEGAL_PAGES = {
     updated: UPDATED,
     draft: true,
     intro:
-      'Without an account, your applications, profile and files stay on your device. With an account, they’re also kept in your account, so they’re on every device you use. If you accept analytics cookies, we also collect anonymous usage data to improve your experience. You can change your mind at any time.',
+      'Without an account, your applications, profile and files stay on your device, plus an online copy for that browser if you choose one. With an account, they’re also kept in your account, so they’re on every device you use. If you accept analytics cookies, we also collect anonymous usage data to improve your experience. You can change your mind at any time.',
     sections: [
       {
         heading: 'Who we are',
@@ -34,12 +36,12 @@ export const LEGAL_PAGES = {
         list: [
           'Your applications: company, job title, portal, the email you used to sign up, links, dates, notes and status history.',
           'Your profile: name, headline, location, contact details, summary, experience, education, projects, certifications and skills.',
-          'Your CV and LinkedIn files, if you add them.',
+          'Your CV and LinkedIn files, if you add them, and your earlier CVs (the newest 10), so you can see what you sent each employer.',
           'CV check results: your score, how many things there are to fix, and the suggestions you chose to ignore.',
           'Preferences, such as light or dark mode and how lists are sorted.',
         ],
         after: [
-          'Without an account, all of this stays in your browser’s storage on this device, and we can’t see it.',
+          'Without an account, all of this stays in your browser’s storage on this device. If you choose to keep a copy online, it’s also kept on our server, linked to that browser (see “Online copy without an account”).',
           'With an account, it’s also kept in your account (see “If you create an account”). Your device keeps a copy too, so the app works with no signal.',
           'None of it is part of the analytics data below.',
         ],
@@ -49,7 +51,7 @@ export const LEGAL_PAGES = {
         paragraphs: [
           'The CV check and “Fill in my profile from my CV” read your CV and LinkedIn PDF on your device, using readers that are part of the app. Your files aren’t sent anywhere to be read.',
           'If your CV is a scanned image, the app can read it with OCR (text recognition), also on your device. The first time, it downloads the OCR engine (about 5 MB) from the same place as the app.',
-          'If you’re signed in, the files themselves and your CV check results are kept in your account, like the rest of your data, so they’re on your other devices too.',
+          'If you’re signed in, the files themselves and your CV check results are kept in your account, like the rest of your data, so they’re on your other devices too. If you keep an online copy without an account, they’re kept in it.',
           'If you’ve accepted analytics cookies, we only learn that one of these features was used. We never learn what your CV says, what it scored, or what was filled in.',
         ],
       },
@@ -93,13 +95,14 @@ export const LEGAL_PAGES = {
       {
         heading: 'Who handles your data',
         paragraphs: [
-          'Supabase, our database and account provider, stores account data, synced data and analytics data for us on servers in Sydney, Australia. It may only use it to provide that service to us. Only you can read your account data through the app; analytics data can only be read by us. [Link to Supabase’s privacy policy.]',
+          'Supabase, our database and account provider, stores account data, synced data, online copies and analytics data for us on servers in Sydney, Australia. It may only use it to provide that service to us. Only you can read your account data through the app; analytics data can only be read by us. [Link to Supabase’s privacy policy.]',
         ],
       },
       {
         heading: 'How long we keep it',
         paragraphs: [
           'Account data, including your synced applications, profile and files, is kept until you delete it or your account.',
+          'An online copy kept without an account is deleted when you turn it off, or when you log in or create an account in that browser (if you agree, its data moves into the account). If the copy can no longer be reached, for example because that browser’s data was cleared, or that browser hasn’t opened Foliofy for 12 months, it’s deleted after 12 months unused.',
           'We keep analytics data for [14 months], then delete it. Overall statistics that can’t identify anyone may be kept for longer.',
         ],
       },
@@ -119,6 +122,14 @@ export const LEGAL_PAGES = {
         heading: 'Hosting',
         paragraphs: [
           'GitHub Pages hosts the app’s files and may keep standard server logs, such as IP addresses and the times pages were loaded, to keep the service running and secure. [Link to GitHub’s privacy statement.]',
+        ],
+      },
+      {
+        heading: 'Online copy without an account',
+        paragraphs: [
+          'Without an account, the app asks you once whether to keep a copy online. If you say yes, your applications, profile (which can include your name and contact details), CV and LinkedIn files and CV check results are kept on our server (Supabase, in Sydney, Australia). The copy is held under a random ID instead of an account, so no email address or password is attached to it. Files are kept in private storage.',
+          'Only the browser that made the copy can open it. So it brings your data back if the app’s storage on that device is lost, but not if you clear that browser’s data or change devices. For that, create an account.',
+          'You can turn it on or off at any time in Settings → Backup, restore and storage. Turning it off deletes the online copy (straight away, or as soon as you’re back online). If you sign in to an account later, you’re asked again after you sign out.',
         ],
       },
       {
@@ -164,10 +175,10 @@ export const LEGAL_PAGES = {
         table: {
           columns: ['What', 'Why', 'How long'],
           rows: [
-            ['Your data (browser storage)', 'Your applications, profile and files, so the app works on this device, even with no signal', 'Until you delete it'],
-            ['Sign-in (browser storage)', 'Keeps you signed in, if you have an account', 'Until you sign out'],
-            ['Settings (browser storage)', 'Light or dark mode, sort order, prompts you’ve dismissed, sync progress', 'Until you clear your browser'],
-            ['foliofy_consent (cookie)', 'Remembers your answer on the cookie banner', '12 months'],
+            [{ text: 'Your data', note: 'Browser storage' }, 'Your applications, profile and files, so the app works on this device, even with no signal', 'Until you delete it'],
+            [{ text: 'Sign-in', note: 'Browser storage' }, 'Keeps you signed in if you have an account, or links this browser to its online copy if you keep one', 'Until you sign out or turn the online copy off'],
+            [{ text: 'Settings', note: 'Browser storage' }, 'Light or dark mode, sort order, prompts you’ve dismissed, sync progress', 'Until you clear your browser'],
+            [{ text: 'Cookie choice', note: 'Cookie: foliofy_consent' }, 'Remembers your answer on the cookie banner', '12 months'],
           ],
         },
       },
@@ -177,7 +188,7 @@ export const LEGAL_PAGES = {
         table: {
           columns: ['What', 'Why', 'How long'],
           rows: [
-            ['foliofy_id (cookie)', 'A random ID for your device, so we can count how many people use the app and how often they come back. Not linked to your name, email or account.', '13 months from your last visit'],
+            [{ text: 'Analytics ID', note: 'Cookie: foliofy_id' }, 'A random ID for your device, so we can count how many people use the app and how often they come back. Not linked to your name, email or account.', '13 months from your last visit'],
           ],
         },
         after: ['What’s collected with it is listed in the Privacy policy, under “Analytics cookies, to improve your experience”.'],
@@ -203,12 +214,13 @@ export const LEGAL_PAGES = {
         table: {
           columns: ['Data', 'What it includes', 'Kept', 'Shared with'],
           rows: [
-            ['Applications', 'Company, job title, portal, login email, links, dates, notes, status history', 'This device, and your account if you’re signed in (Supabase, Sydney)', 'No one; Supabase stores it for us'],
-            ['Profile', 'Name, headline, location, contact details, summary, experience, education, projects, certifications, skills', 'This device, and your account if you’re signed in (Supabase, Sydney)', 'No one; Supabase stores it for us'],
-            ['CV and LinkedIn files', 'The files you add', 'This device, and your account’s private storage if you’re signed in', 'No one; Supabase stores it for us'],
-            ['CV check results', 'Your score, how many things to fix, and which suggestions you ignored', 'This device, and your account if you’re signed in', 'No one; Supabase stores it for us'],
+            ['Applications', 'Company, job title, portal, login email, links, dates, notes, status history', 'This device, plus your account or online copy (Supabase, Sydney)', 'No one; Supabase stores it for us'],
+            ['Profile', 'Name, headline, location, contact details, summary, experience, education, projects, certifications, skills', 'This device, plus your account or online copy (Supabase, Sydney)', 'No one; Supabase stores it for us'],
+            ['CV and LinkedIn files', 'The files you add, and your earlier CVs (the newest 10)', 'This device, plus private storage in your account or online copy', 'No one; Supabase stores it for us'],
+            ['CV check results', 'Your score, how many things to fix, and which suggestions you ignored', 'This device, plus your account or online copy', 'No one; Supabase stores it for us'],
             ['Preferences', 'Light or dark mode, sort order, dismissed prompts', 'This device', 'No one'],
             ['Backups', 'A copy of your applications, profile, CV and LinkedIn files', 'Wherever you save the file', 'Anyone you give the file to'],
+            ['Online copy (only if you choose one, without an account)', 'The four rows above, under a random ID instead of an account (no email address or password)', 'Supabase, in Sydney, until you turn it off or 12 months unused', 'Supabase, which runs it for us'],
             ['Account (only if you create one)', 'Email address, a scrambled copy of your password, sign-up date, what you agreed to', 'Supabase, in Sydney', 'Supabase, which runs it for us'],
             ['Analytics (only if you accept analytics cookies)', 'Screens and features used, app version, phone or computer layout, whether you’re signed in, a random device ID', 'Our database (Supabase, Sydney), for [14 months]', 'Only us'],
           ],
@@ -280,7 +292,7 @@ export const LEGAL_PAGES = {
         list: [
           'Keep the details you enter accurate.',
           'Don’t store passwords in the app. Use a password manager.',
-          'Back up your data if you don’t have an account, because then it’s kept only on your device.',
+          'Back up your data if you don’t have an account, because then it’s kept only on your device (and in an online copy only that browser can open, if you keep one).',
           'Check deadlines and requirements directly with employers.',
         ],
       },
@@ -344,13 +356,15 @@ export const LEGAL_PAGES = {
         list: [
           'A short setup the first time you open the app, to fill in your profile from your CV or by hand.',
           'An optional account: sign in and your applications, profile, CV and LinkedIn files are the same on every device you use, and backed up.',
+          'Without an account, an optional online copy that this browser can bring back if the app’s storage is lost.',
           'Tracking applications: status, portal, the email you used, follow-up dates, notes and history.',
           'Filling in your profile from your CV or LinkedIn PDF, on this device and without AI. Scanned CVs are read with OCR.',
           'Checking your CV: a score, what to fix first and what’s already strong.',
+          'A CV history: your earlier CVs are kept with their CV check score, and each application can say which CV you sent.',
           'Adding a follow-up date to your calendar, with a reminder on the day.',
           'Backing up to a file (including your CV) and restoring it, on this phone or a new one.',
         ],
-        after: ['Without an account, everything is saved only on this device, so back up now and then.'],
+        after: ['Without an account, everything is saved on this device (and its online copy, if you keep one), so back up to a file now and then.'],
       },
       {
         heading: 'Coming soon',
@@ -390,7 +404,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'Something missing?',
         paragraphs: [
-          'Foliofy is a preview, so some features aren’t built yet. To see what’s coming, go to Profile, tap the menu button (three lines), then What’s coming.',
+          'Foliofy is a preview, so some features aren’t built yet. To see what’s coming, open Settings (on a phone, the menu button on Profile), then What’s coming.',
         ],
       },
       {
@@ -415,13 +429,20 @@ export const LEGAL_PAGES = {
         heading: 'Checking your CV',
         paragraphs: [
           'Go to Profile, add your CV (a PDF or Word .docx file), then tap Check your CV. You’ll see a score, what to fix (most important first) and what’s already strong.',
-          'Tap a suggestion to see the lines in your CV it’s about and how to fix them. If one doesn’t apply to you, tap Ignore this suggestion. Your CV is checked on this device. If you’re signed in, the CV and its check are also kept in your account.',
+          'Tap a suggestion to see the lines in your CV it’s about and how to fix them. If one doesn’t apply to you, tap Ignore this suggestion. Your CV is checked on this device. If you’re signed in, the CV and its check are also kept in your account (or in your online copy, if you keep one).',
+        ],
+      },
+      {
+        heading: 'Your earlier CVs',
+        paragraphs: [
+          'When you add a different CV, the one before it is kept in your CV history (Profile, then CV history), with its CV check score. The newest 10 are kept. You can view any of them, make one your current CV again, or delete it.',
+          'When you add an application, it remembers which CV was your current one. You can change it on the application’s Edit screen, under CV sent.',
         ],
       },
       {
         heading: 'Backing up',
         paragraphs: [
-          'With an account (Settings, Account), your data is backed up to it automatically. Without one, it’s kept only on this device: go to Profile, tap the menu button (three lines), then Backup, restore and storage, and save a backup somewhere safe.',
+          'With an account (Settings, Account), your data is backed up to it automatically. Without one, it’s kept on this device, plus an online copy if you keep one, which only this browser can open. So save a backup file somewhere safe now and then: Settings, then Backup, restore and storage (on a phone, Settings is the menu button on Profile).',
         ],
       },
       {
@@ -431,7 +452,7 @@ export const LEGAL_PAGES = {
       {
         heading: 'Does the app collect my data?',
         paragraphs: [
-          `Only what you agree to. Analytics cookies, which share anonymous usage data like which screens you use, are only on if you accept them (${SETTING}). If you create an account, your data is kept in it so it’s on all your devices. Neither ever includes your data in analytics.`,
+          `Only what you agree to. Analytics cookies, which share anonymous usage data like which screens you use, are only on if you accept them (${SETTING}). If you create an account, your data is kept in it so it’s on all your devices. Without an account, you choose whether to keep an online copy. Analytics never includes your data.`,
         ],
       },
       {

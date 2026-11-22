@@ -7,12 +7,20 @@
 //
 // Email links (confirming an address, resetting a password) come back to the app as
 // #access_token=...&type=... in the address; handleAuthRedirect() picks those up.
+//
+// Without an account: if you agree to keep a copy online, the app quietly starts a
+// guest session (Supabase's anonymous sign-in). Your data then syncs to the server
+// like an account's, but only this browser holds the key to it. Creating an account
+// or logging in replaces the guest session, and the guest's online copy is deleted
+// (this device's data moves into the account instead).
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
 import { getPref, setPref } from './prefs.js';
 
 const SESSION_KEY = 'jt-session';
 const PENDING_CONSENTS_KEY = 'jt-pending-consents';
+const ONLINE_COPY_KEY = 'jt-online-copy'; // '' not asked yet, 'on', or 'off'
+const GUESTS_TO_REMOVE_KEY = 'jt-guests-to-remove';
 export const MIN_PASSWORD_LENGTH = 8;
 export const MIN_AGE = 16;
 // Which versions of the terms and privacy policy people agree to. Bump when they change.
@@ -32,9 +40,9 @@ function readStoredSession() {
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (event) => {
     if (event.key !== SESSION_KEY) return;
-    const wasSignedIn = Boolean(session);
+    const before = session?.user?.id ?? '';
     session = readStoredSession();
-    if (wasSignedIn !== Boolean(session)) notify();
+    if (before !== (session?.user?.id ?? '')) notify();
   });
 }
 
@@ -90,29 +98,90 @@ async function call(path, { method = 'GET', body, token } = {}) {
   return data;
 }
 
+const sessionFrom = (data) => ({
+  accessToken: data.access_token,
+  refreshToken: data.refresh_token,
+  expiresAt: Math.floor(Date.now() / 1000) + Number(data.expires_in || 3600),
+  user: { id: data.user?.id ?? '', email: data.user?.email ?? '' },
+  guest: Boolean(data.user?.is_anonymous),
+});
+
 function keep(data) {
-  session = {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: Math.floor(Date.now() / 1000) + Number(data.expires_in || 3600),
-    user: { id: data.user?.id ?? '', email: data.user?.email ?? '' },
-  };
+  const previous = session;
+  session = sessionFrom(data);
   setPref(SESSION_KEY, JSON.stringify(session));
+  const from = previous?.user?.id ?? '';
+  if (from !== session.user.id) sessionChanged(from, session.user.id);
+  // Logged in (or confirmed a new account) on top of a guest session: the guest's
+  // online copy isn't needed any more. This device's data goes into the account.
+  if (previous?.guest && previous.user.id !== session.user.id) removeGuest(previous);
+  // With an account, the online copy question no longer applies. If you sign out
+  // later, it's asked again rather than quietly starting a new copy of your data.
+  if (!session.guest && onlineCopyChoice() === 'on') setPref(ONLINE_COPY_KEY, '');
   notify();
   return session;
 }
 
 function forget(reason = 'signed-out') {
+  const from = session?.user?.id ?? '';
   session = null;
   setPref(SESSION_KEY, '');
+  if (from) sessionChanged(from, '');
   notify(reason);
 }
 
-/** reason: 'signed-in', 'signed-out', or 'expired' (the session was refused: log in again). */
+// ---- Telling sync.js about changes (it imports this file, so not the other way round) ----
+
+const sessionListeners = [];
+
+/**
+ * Calls fn({ from, to }) (user ids, '' for none) whenever this device starts syncing as
+ * someone else: signing in or out, a guest starting or ending, an account replacing a guest.
+ */
+export function onSessionChange(fn) {
+  sessionListeners.push(fn);
+}
+
+function sessionChanged(from, to) {
+  for (const fn of sessionListeners) {
+    try {
+      fn({ from, to });
+    } catch (error) {
+      console.error(error);
+    }
+  }
+}
+
+let waitForSync = async () => {};
+
+/** sync.js says how to wait for a sync that's running, so a guest isn't deleted mid-upload. */
+export function setSyncWaiter(fn) {
+  waitForSync = fn;
+}
+
+function onlineCopyChanged() {
+  if (typeof window !== 'undefined' && typeof CustomEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('foliofy:online-copy-changed', { detail: { choice: onlineCopyChoice() } }));
+  }
+}
+
+/**
+ * reason: 'signed-in', 'signed-out', 'expired' (an account's session was refused: log
+ * in again), 'guest-ended' (a guest session was refused, for example deleted after a
+ * year unused), or 'copy-off' (the online copy was turned off).
+ */
 function notify(reason = session ? 'signed-in' : 'signed-out') {
   if (typeof window !== 'undefined' && typeof CustomEvent === 'function') {
-    window.dispatchEvent(new CustomEvent('foliofy:auth-changed', { detail: { signedIn: Boolean(session), reason } }));
+    window.dispatchEvent(new CustomEvent('foliofy:auth-changed', {
+      detail: { signedIn: Boolean(currentUser()), online: Boolean(session), guest: Boolean(session?.guest), reason },
+    }));
   }
+}
+
+/** Runs `work` while no other tab is changing the session. */
+function oneTabAtATime(work) {
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) return navigator.locks.request('foliofy-session', work);
+  return work();
 }
 
 /** Where email links should bring people back to: this app's own address. */
@@ -120,9 +189,183 @@ export function appAddress() {
   return typeof location === 'undefined' ? '' : `${location.origin}${location.pathname}`;
 }
 
-/** The signed-in person ({ id, email }), or null. */
+/** The signed-in person ({ id, email }), or null. A guest session isn't an account, so it's null too. */
 export function currentUser() {
-  return session?.user ?? null;
+  return session && !session.guest ? session.user : null;
+}
+
+/** Whoever this device syncs as: { id, email, guest }, an account or a guest; or null. */
+export function onlineUser() {
+  return session ? { ...session.user, guest: Boolean(session.guest) } : null;
+}
+
+// ---- The online copy, without an account ----
+
+/**
+ * Where this device's data is kept besides the device itself, for the wording on screens:
+ * 'account', 'online-copy' (a guest session) or 'device' (only here). It's what's true
+ * now: an online copy that's switched on but couldn't start yet doesn't count.
+ */
+export function dataHome() {
+  if (currentUser()) return 'account';
+  if (session?.guest) return 'online-copy';
+  return 'device';
+}
+
+/** How far a deletion reaches, for confirmation messages: "Delete X <this>?" */
+export function deletionReach() {
+  return {
+    account: 'from your account and every device you’re signed in on',
+    'online-copy': 'from this device and its online copy',
+    device: 'from this device',
+  }[dataHome()];
+}
+
+/** '' (not asked yet), 'on' or 'off'. */
+export function onlineCopyChoice() {
+  const choice = getPref(ONLINE_COPY_KEY, '');
+  return choice === 'on' || choice === 'off' ? choice : '';
+}
+
+let guestStarting = null;
+let guestsUnavailable = false;
+let guestRetryAt = 0; // after the server said "too many" or had a problem: wait before trying again
+const GUEST_RETRY_MS = 10 * 60 * 1000;
+
+/**
+ * Starts a guest session, so this device's data has an online copy. Only when there's
+ * no session, the copy is switched on, and this browser can keep the session (in a
+ * private window it couldn't, and every visit would start a new guest). Resolves to
+ * the session, or null.
+ */
+export function startGuest() {
+  if (session || onlineCopyChoice() !== 'on' || guestsUnavailable || Date.now() < guestRetryAt || !canKeepSession()) return Promise.resolve(session);
+  guestStarting ??= oneTabAtATime(async () => {
+    const stored = readStoredSession();
+    if (stored) {
+      // Another tab started one (or signed in) a moment ago: use it.
+      session = stored;
+      notify();
+      return session;
+    }
+    let data;
+    try {
+      data = await call('signup', { method: 'POST', body: { data: {} } });
+    } catch (error) {
+      // Guest sessions aren't switched on in Supabase (yet): try again next time the app opens.
+      if (error.code === 'anonymous_provider_disabled' || error.status === 422) guestsUnavailable = true;
+      // Too many tries, or a problem on the server: not again for a while. (Offline: when back online.)
+      else if (error.code !== 'network') guestRetryAt = Date.now() + GUEST_RETRY_MS;
+      return null;
+    }
+    if (!data.access_token) return null;
+    const existing = session ?? readStoredSession();
+    if (existing || onlineCopyChoice() !== 'on') {
+      // Signed in (here or in another tab), or turned the copy off, while it was
+      // starting: not needed after all.
+      removeGuest(sessionFrom(data));
+      if (existing && !session) {
+        session = existing;
+        notify();
+      }
+      return session;
+    }
+    return keep(data);
+  }).finally(() => {
+    guestStarting = null;
+  });
+  return guestStarting;
+}
+
+/** Turns the online copy on (starting a guest session) or off (deleting the guest's online copy). */
+/**
+ * Turns the online copy on (starting a guest session; resolves to the session or null)
+ * or off (deleting the guest's online copy; resolves to true once it's deleted, or false
+ * if that has to wait until the app is back online).
+ */
+export async function setOnlineCopy(on) {
+  setPref(ONLINE_COPY_KEY, on ? 'on' : 'off');
+  onlineCopyChanged();
+  if (on) {
+    guestsUnavailable = false;
+    guestRetryAt = 0;
+    return startGuest();
+  }
+  if (!session?.guest) return true;
+  const guest = session;
+  forget('copy-off');
+  return removeGuest(guest);
+}
+
+function canKeepSession() {
+  try {
+    localStorage.setItem('jt-check', '1');
+    localStorage.removeItem('jt-check');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Deletes a guest's online copy: its files, then the guest itself (which removes its
+ * rows). Remembered until it works, so being offline doesn't leave it behind.
+ */
+async function removeGuest(guest) {
+  const pending = guestsToRemove().filter((g) => g.user.id !== guest.user.id);
+  saveGuestsToRemove([...pending, guest]);
+  // A sync still uploading to it would leave files behind with no one to delete them.
+  await waitForSync().catch(() => {});
+  try {
+    let token = guest.accessToken;
+    if (guest.expiresAt - 60 <= Date.now() / 1000) {
+      const data = await call('token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: guest.refreshToken } });
+      token = data.access_token;
+      // The old refresh token can't be used twice, so keep the new one in case the rest fails.
+      saveGuestsToRemove([...pending, sessionFrom(data)]);
+    }
+    const headers = { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    // Its earlier CVs (CV history) are files in a folder of their own.
+    const folder = `${guest.user.id}/cv-versions`;
+    const listed = await fetch(`${SUPABASE_URL}/storage/v1/object/list/documents`, { method: 'POST', headers, body: JSON.stringify({ prefix: folder, limit: 100 }) });
+    const earlierCvs = listed.ok ? (await listed.json()).map((file) => `${folder}/${file.name}`) : [];
+    const files = await fetch(`${SUPABASE_URL}/storage/v1/object/documents`, {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({ prefixes: [`${guest.user.id}/cv`, `${guest.user.id}/linkedin`, ...earlierCvs] }),
+    });
+    if (!files.ok && files.status !== 404 && files.status !== 400) return false;
+    const account = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_my_account`, { method: 'POST', headers, body: '{}' });
+    if (!account.ok) return false;
+  } catch (error) {
+    // Offline: try again later. A refused guest session is already gone (or will be
+    // deleted after a year unused), so there's nothing more to do for it.
+    if (error instanceof AuthError && error.code !== 'network' && !(error.status >= 500) && error.status !== 429) {
+      saveGuestsToRemove(pending);
+    }
+    return false;
+  }
+  saveGuestsToRemove(guestsToRemove().filter((g) => g.user.id !== guest.user.id));
+  setPref(`jt-sync-${guest.user.id}`, '');
+  return true;
+}
+
+function guestsToRemove() {
+  try {
+    const list = JSON.parse(getPref(GUESTS_TO_REMOVE_KEY, '[]'));
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveGuestsToRemove(list) {
+  setPref(GUESTS_TO_REMOVE_KEY, list.length ? JSON.stringify(list) : '');
+}
+
+/** Tries again to delete guest copies that couldn't be deleted at the time (offline). */
+export async function finishRemovingGuests() {
+  for (const guest of guestsToRemove()) await removeGuest(guest);
 }
 
 /**
@@ -185,20 +428,24 @@ export async function accessToken() {
       session = latest;
       return session.accessToken;
     }
+    if (!latest) return null; // signed out in another tab meanwhile
+    // Signed in, out or as someone else while the refresh was on its way: that newer
+    // session stands, and this answer is thrown away.
+    const stillCurrent = () => (readStoredSession() ?? session)?.refreshToken === latest.refreshToken;
     try {
-      const data = await call('token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: latest?.refreshToken ?? session.refreshToken } });
+      const data = await call('token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: latest.refreshToken } });
+      if (!stillCurrent()) return null;
       keep(data);
       return session.accessToken;
     } catch (error) {
       // Offline, busy or a server hiccup: keep the session and try again later.
-      // Only a refused session means logging in again.
+      // Only a refused session means logging in again (or, for a guest, starting a new one).
       const temporary = error.code === 'network' || error.code === 'over_request_rate_limit' || error.status === 429 || error.status >= 500;
-      if (!temporary) forget('expired');
+      if (!temporary && stillCurrent()) forget(latest.guest ? 'guest-ended' : 'expired');
       return null;
     }
   };
-  if (typeof navigator !== 'undefined' && navigator.locks?.request) return navigator.locks.request('foliofy-session', refresh);
-  return refresh();
+  return oneTabAtATime(refresh);
 }
 
 /**

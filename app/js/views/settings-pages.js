@@ -5,7 +5,7 @@ import { listApplications, clearAll, isPersisted, storageMode } from '../store.j
 import { exportBackup, importBackup, lastBackupAt } from '../backup.js';
 import { canPromptInstall, promptInstall, isInstalled } from '../install.js';
 import { getProfile, isProfileEmpty, getDocument, deleteProfileAndDocuments } from '../profile.js';
-import { currentUser } from '../auth.js';
+import { currentUser, dataHome, deletionReach, onlineCopyChoice, setOnlineCopy, onlineUser } from '../auth.js';
 import { subHeader, wireBack } from './components.js';
 
 // ---- Notifications ----
@@ -73,13 +73,15 @@ export async function renderData(ctx) {
   const hasProfile = !isProfileEmpty(profile) || Boolean(cv || linkedin);
 
   const screen = createScreen(html`
-    ${subHeader('Backup and storage')}
+    ${subHeader('Backup, restore and storage')}
     <main class="content">
       <section class="panel">
         <h2 class="panel-title">Backup</h2>
-        ${currentUser()
-          ? html`<p>You’re signed in, so everything is also backed up to your account automatically. A backup file is still handy to keep your own copy.</p>`
-          : html`<p>Your applications and profile are saved only on this device. Back up now and then, and before you clear your browser or switch phones. Or <a href="#/account">create an account</a> to back up automatically.</p>`}
+        ${{
+          account: html`<p>You’re signed in, so everything is also backed up to your account automatically. A backup file is still handy to keep your own copy.</p>`,
+          'online-copy': html`<p>Your applications and profile are saved on this device, with an online copy that only this browser can open. Clearing your browser loses the way to it, so back up to a file now and then, and before you switch phones. Or <a href="#/account">create an account</a> to back up automatically.</p>`,
+          device: html`<p>Your applications and profile are saved only on this device. Back up now and then, and before you clear your browser or switch phones. Or <a href="#/account">create an account</a> to back up automatically.</p>`,
+        }[dataHome()]}
         ${lastBackupAt() ? html`<p class="muted">Last backup: ${formatTimestamp(lastBackupAt())}</p>` : html`<p class="muted">You haven’t backed up on this device yet.</p>`}
         <div class="stack">
           <button type="button" class="btn primary block" data-action="export" ${count === 0 && !hasProfile && raw('disabled')}>
@@ -93,6 +95,17 @@ export async function renderData(ctx) {
         <p class="hint">Backups include your applications, profile, CV and LinkedIn files, and your last CV check.</p>
         <p class="result" aria-live="polite" hidden></p>
       </section>
+
+      ${!currentUser() && storageMode() !== 'memory' && html`
+        <section class="panel">
+          <label class="switch-row">
+            <span class="switch-text">
+              <span class="switch-title">Keep a copy online</span>
+              <span class="switch-desc">Your applications, profile, CV and LinkedIn files and CV check, kept on Foliofy’s server and linked to this browser. If the app’s storage on this device is lost, they come back. Turning this off deletes the online copy.</span>
+            </span>
+            <input type="checkbox" class="switch" role="switch" data-setting="online-copy" ${onlineCopyChoice() === 'on' && raw('checked')}>
+          </label>
+        </section>`}
 
       <section class="panel">
         <h2 class="panel-title">Storage</h2>
@@ -132,13 +145,13 @@ export async function renderData(ctx) {
         break;
       }
       case 'clear-apps':
-        if (!window.confirm(`Delete all ${plural(count, 'application')} ${currentUser() ? 'from your account and every device you’re signed in on' : 'from this device'}? This can’t be undone.`)) return;
+        if (!window.confirm(`Delete all ${plural(count, 'application')} ${deletionReach()}? This can’t be undone.`)) return;
         await clearAll();
         showToast('All applications deleted');
         await renderData(ctx);
         break;
       case 'clear-profile':
-        if (!window.confirm(`Delete your profile, CV and LinkedIn files ${currentUser() ? 'from your account and every device you’re signed in on' : 'from this device'}? This can’t be undone.`)) return;
+        if (!window.confirm(`Delete your profile, CV and LinkedIn files ${deletionReach()}? This can’t be undone.`)) return;
         await deleteProfileAndDocuments();
         showToast('Profile deleted');
         await renderData(ctx);
@@ -146,6 +159,19 @@ export async function renderData(ctx) {
       default:
         break;
     }
+  });
+
+  screen.querySelector('[data-setting="online-copy"]')?.addEventListener('change', async (event) => {
+    const on = event.target.checked;
+    if (!on && onlineUser()?.guest && !window.confirm('Turn off the online copy? It will be deleted from Foliofy’s server. Everything stays on this device.')) {
+      event.target.checked = true;
+      return;
+    }
+    event.target.disabled = true;
+    const result = await setOnlineCopy(on);
+    if (on) showToast(result ? 'Online copy on' : 'Couldn’t start the online copy just now. It will try again next time the app opens.', { duration: result ? 3000 : 6000 });
+    else showToast(result ? 'Online copy turned off and deleted' : 'Online copy turned off. It will be deleted from the server when you’re back online.', { duration: 6000 });
+    await renderData(ctx);
   });
 
   screen.querySelector('input[type="file"]').addEventListener('change', async (event) => {

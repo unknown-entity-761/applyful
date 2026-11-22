@@ -104,7 +104,7 @@ export async function renderProfileEdit(ctx, review = null, { setup = false } = 
           ${field('linkedinUrl', 'LinkedIn profile link', html`
             <input id="f-linkedinUrl" name="linkedinUrl" type="url" value="${profile.linkedinUrl}" inputmode="url"
                    autocapitalize="off" spellcheck="false" placeholder="https://www.linkedin.com/in/your-name">`)}
-          <p class="hint">Saved only on this device. Used later to fill in cover letters.</p>`)}
+          <p class="hint">Used later to fill in cover letters.</p>`)}
 
         <div class="form-actions">
           <button type="submit" class="btn primary block">${saveLabel}</button>

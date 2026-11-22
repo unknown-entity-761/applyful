@@ -13,13 +13,14 @@ import {
   removeDocument,
   openDocument,
   getCvCheck,
+  listCvVersions,
 } from '../profile.js';
 import { navigate } from '../router.js';
 import { tabBar } from './components.js';
-import { currentUser } from '../auth.js';
+import { deletionReach } from '../auth.js';
 
 export async function renderProfile(ctx, scrollY = 0) {
-  const [profile, cv, linkedin] = await Promise.all([getProfile(), getDocument('cv'), getDocument('linkedin')]);
+  const [profile, cv, linkedin, cvVersions] = await Promise.all([getProfile(), getDocument('cv'), getDocument('linkedin'), listCvVersions()]);
   const cvCheck = await getCvCheck(cv);
   const docs = { cv, linkedin };
   const strength = profileStrength(profile, docs);
@@ -73,7 +74,15 @@ export async function renderProfile(ctx, scrollY = 0) {
             </span>
             <span class="summary-cta">${cvCheck ? 'Open' : 'Check'} ${icon('chevron')}</span>
           </a>`}
-        <p class="hint">Your files stay on this device. Filling in your profile adds what’s missing and never overwrites what you’ve typed, and you check it all before it’s saved.</p>
+        ${(docs.cv || cvVersions.length > 0) && html`
+          <a class="summary-link cv-check-link" href="#/profile/cv-history">
+            <span class="cv-check-text">
+              <strong>CV history</strong>
+              <span class="muted">${cvVersions.length ? `${plural(cvVersions.length, 'earlier CV')} kept` : 'Earlier CVs are kept here when you add a new one'}</span>
+            </span>
+            <span class="summary-cta">Open ${icon('chevron')}</span>
+          </a>`}
+        <p class="hint">Your files are read here on your device. Filling in your profile adds what’s missing and never overwrites what you’ve typed, and you check it all before it’s saved.</p>
         <details class="more">
           <summary>How to get your LinkedIn profile as a PDF</summary>
           <p>On a computer, open your LinkedIn profile, select <strong>More</strong> (or <strong>Resources</strong>), then <strong>Save to PDF</strong>.</p>
@@ -137,7 +146,7 @@ export async function renderProfile(ctx, scrollY = 0) {
     if (button.dataset.docAction === 'open') {
       await openDocument(kind);
     } else if (button.dataset.docAction === 'remove') {
-      if (!window.confirm(`Remove your ${DOC_KINDS[kind].label} ${currentUser() ? 'from your account and every device you’re signed in on' : 'from this device'}?`)) return;
+      if (!window.confirm(`Remove your ${DOC_KINDS[kind].label} ${deletionReach()}?`)) return;
       await removeDocument(kind);
       showToast(`${DOC_KINDS[kind].label} removed`);
       await renderProfile(ctx, window.scrollY);

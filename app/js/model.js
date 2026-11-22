@@ -110,6 +110,7 @@ export function normalize(input) {
     appliedOn: date(input.appliedOn),
     status: STATUS_MAP.has(input.status) ? input.status : DEFAULT_STATUS,
     followUpOn: date(input.followUpOn),
+    cvVersionId: text(input.cvVersionId, 64), // which CV was sent (CV history, profile.js); '' if none
     notes: String(input.notes ?? '').replace(/\s+$/, '').slice(0, 5000),
     statusHistory: Array.isArray(input.statusHistory)
       ? input.statusHistory

@@ -1,10 +1,11 @@
 // Add / Edit screen: one short form. Only company and job title are required.
 
-import { html, raw, createScreen, mount, notFoundScreen, todayISO, addDays, showToast } from '../ui.js';
+import { html, raw, createScreen, mount, notFoundScreen, todayISO, addDays, showToast, formatTimestamp } from '../ui.js';
 import { getApplication, listApplications, saveApplication, requestPersistence } from '../store.js';
 import { STATUSES, PORTALS, blankApplication, normalize, validate, withStatus, recentValues } from '../model.js';
 import { back, navigate } from '../router.js';
 import { field, setFieldError, linkHints } from './fields.js';
+import { getDocument, listCvVersions, cvVersionIdOf } from '../profile.js';
 
 export async function renderForm({ id } = {}, ctx) {
   const isEdit = Boolean(id);
@@ -14,7 +15,17 @@ export async function renderForm({ id } = {}, ctx) {
     return;
   }
 
-  const original = existing ?? blankApplication();
+  // CVs to choose from for "CV sent": the current one first, then earlier ones.
+  const [currentCv, earlierCvs] = await Promise.all([getDocument('cv'), listCvVersions()]);
+  const cvChoices = [
+    ...(currentCv ? [{ id: cvVersionIdOf(currentCv), label: `${currentCv.name} (current)` }] : []),
+    ...earlierCvs.map((cv) => ({ id: cv.versionId, label: `${cv.name}, added ${formatTimestamp(cv.addedAt)}` })),
+  ];
+  const original = existing ?? { ...blankApplication(), cvVersionId: currentCv ? cvVersionIdOf(currentCv) : '' };
+  // A CV that's since been deleted stays selectable, so saving doesn't lose the link.
+  if (original.cvVersionId && !cvChoices.some((choice) => choice.id === original.cvVersionId)) {
+    cvChoices.push({ id: original.cvVersionId, label: 'A CV you’ve since deleted' });
+  }
   // Keep a portal name from an older backup selectable even if it isn't in today's list.
   const portals = original.portal && !PORTALS.includes(original.portal) ? [...PORTALS, original.portal] : PORTALS;
   const detailPath = `/a/${encodeURIComponent(original.id)}`;
@@ -69,6 +80,12 @@ export async function renderForm({ id } = {}, ctx) {
             <button type="button" class="chip" data-days="14">In 2 weeks</button>
             <button type="button" class="chip" data-days="clear">Clear</button>
           </div>`)}
+
+        ${cvChoices.length > 0 && field('cvVersionId', 'CV sent', html`
+          <select id="f-cvVersionId" name="cvVersionId">
+            <option value="">None, or not sure</option>
+            ${cvChoices.map((cv) => html`<option value="${cv.id}" ${cv.id === original.cvVersionId && raw('selected')}>${cv.label}</option>`)}
+          </select>`, { hint: 'Your CV history keeps each CV you add, so you can see what you sent.' })}
 
         ${field('notes', 'Notes', html`
           <textarea id="f-notes" name="notes" rows="4"

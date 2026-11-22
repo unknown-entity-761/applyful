@@ -9,6 +9,7 @@
 import { html, icon, createScreen, mount, showToast } from '../ui.js';
 import {
   currentUser,
+  dataHome,
   signUp,
   resendConfirmation,
   logIn,
@@ -45,7 +46,10 @@ export async function renderAccount(ctx) {
         <section class="panel">
           <h2 class="panel-title">${icon('user')} Sign in to Foliofy</h2>
           <p>An account will keep your applications and profile the same on your phone and your computer, and back them up for you.</p>
-          <p class="hint">It’s optional: without one, everything stays on this device, as now.</p>
+          ${dataHome() === 'online-copy'
+            ? html`<p class="hint">It’s optional. Without one, your data is kept on this device, with an online copy that only this browser can open (Settings, Backup, restore and storage).</p>
+                <p class="sync-line" data-sync-status aria-live="polite"></p>`
+            : html`<p class="hint">It’s optional: without one, everything stays on this device, as now.</p>`}
           <div class="stack">
             <a class="btn primary block" href="#/account/sign-up">Create an account</a>
             <a class="btn block" href="#/account/log-in">Log in</a>
@@ -67,12 +71,13 @@ export async function renderAccount(ctx) {
       line.classList.toggle('warning', now.state === 'error');
       line.textContent = now.state === 'syncing' ? 'Syncing…'
         : now.state === 'error' ? now.error
+        : now.state === 'off' ? ''
         : now.lastSyncedAt ? `Synced ${formatSyncTime(now.lastSyncedAt)}` : 'Not synced yet';
     };
     show();
     const onChange = () => (line.isConnected ? show() : window.removeEventListener('foliofy:sync-changed', onChange));
     window.addEventListener('foliofy:sync-changed', onChange);
-    screen.querySelector('[data-action="sync-now"]').addEventListener('click', () => syncNow());
+    screen.querySelector('[data-action="sync-now"]')?.addEventListener('click', () => syncNow());
   }
   screen.querySelector('[data-action="sign-out"]')?.addEventListener('click', async () => {
     await signOut();

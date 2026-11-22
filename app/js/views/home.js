@@ -11,7 +11,7 @@ import { openApplications } from './applications.js';
 import { exportBackup, backupReminderDue, backupReminderSettings, snoozeBackupReminder } from '../backup.js';
 import { isInstalled, canPromptInstall, promptInstall } from '../install.js';
 import { getPref, setPref } from '../prefs.js';
-import { currentUser } from '../auth.js';
+import { currentUser, dataHome } from '../auth.js';
 
 const INSTALL_CARD_KEY = 'jt-install-card-dismissed';
 const isPhone = () => window.matchMedia('(pointer: coarse)').matches;
@@ -160,12 +160,13 @@ function installCard(appCount) {
 }
 
 function backupCard(lastBackupAt) {
+  const where = dataHome() === 'online-copy' ? 'They’re online for this browser only' : 'They’re saved only on this device';
   return html`
     <div class="callout info" role="note">
       <p class="callout-title">${icon('download')} Back up your applications</p>
       <p>${lastBackupAt
-        ? `They're saved only on this device, and they've changed since your last backup on ${formatTimestamp(lastBackupAt)}.`
-        : "They're saved only on this device, and you haven't backed up yet."}</p>
+        ? `${where}, and they’ve changed since your last backup on ${formatTimestamp(lastBackupAt)}.`
+        : `${where}, and you haven’t backed up yet.`}</p>
       <div class="callout-actions">
         <button type="button" class="btn small primary" data-action="backup-now">Back up now</button>
         <button type="button" class="btn small" data-action="snooze-backup">Later</button>

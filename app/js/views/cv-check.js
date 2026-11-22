@@ -8,7 +8,7 @@ import { DOC_KINDS, MAX_DOC_BYTES, getProfile, getDocument, saveDocumentFile, ge
 import { extractCv, CvReadError, readErrorMessage } from '../cv/extract.js';
 import { checkCv, scoreCv, SEVERITIES } from '../cv/rules.js';
 import { track } from '../analytics.js';
-import { currentUser } from '../auth.js';
+import { dataHome } from '../auth.js';
 import { subHeader, wireBack } from './components.js';
 
 // Fixes whose quotes come from your profile or LinkedIn, not from the CV itself.
@@ -75,7 +75,7 @@ function showAddCv(ctx) {
       <div class="empty">
         <div class="empty-icon">${icon('file')}</div>
         <h2>Check your CV</h2>
-        <p>See what’s strong and what to fix before a recruiter or job portal does. It’s checked here on your device${currentUser() ? ', and your CV and its check are kept in your account' : ', and your CV isn’t uploaded'}.</p>
+        <p>See what’s strong and what to fix before a recruiter or job portal does. It’s checked here on your device${{ account: ', and your CV and its check are kept in your account', 'online-copy': ', and your CV and its check are kept in this browser’s online copy', device: ', and your CV isn’t uploaded' }[dataHome()]}.</p>
         <label class="btn primary file-btn">
           ${icon('upload')} Add your CV
           <input type="file" class="visually-hidden" accept="${DOC_KINDS.cv.accept}" data-add-cv>
@@ -204,7 +204,7 @@ function resultBody(state) {
       </div>
     </section>
     <p class="privacy-note">${icon('info')} The score is a guide to how easily job portals and recruiters can read your CV, not a prediction of whether you’ll get the job. What works best differs by country and industry.</p>
-    <p class="privacy-note">${icon('shield')} Checked on this device with ${result.checks} checks.${currentUser() ? '' : ' Your CV wasn’t uploaded.'}</p>
+    <p class="privacy-note">${icon('shield')} Checked on this device with ${result.checks} checks.${dataHome() === 'device' ? ' Your CV wasn’t uploaded.' : ''}</p>
 
     ${active.length > 0 && html`
       <section class="group" aria-labelledby="fix-heading">

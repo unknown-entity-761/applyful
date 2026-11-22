@@ -3,7 +3,7 @@
 // the app read your CV or LinkedIn PDF into it (cv/parse.js), then check it before
 // saving. Cover letters and job matches will use it later.
 
-import { STORES, getRecord, putRecords, deleteRecord, clearStore } from './store.js';
+import { STORES, getRecord, getAllRecords, putRecords, deleteRecord, clearStore } from './store.js';
 import { getPref, setPref } from './prefs.js';
 import { makeId, normalizeUrl } from './model.js';
 import { safeHttpUrl } from './ui.js';
@@ -259,6 +259,7 @@ export async function saveProfile(profile) {
 
 export async function deleteProfileAndDocuments() {
   for (const kind of Object.keys(DOC_KINDS)) if (await getDocument(kind)) markDocumentDeleted(kind);
+  rememberVersionDeletions((await listCvVersions()).map((version) => version.versionId));
   // Saved as an empty profile with today's date rather than removed, so sync can
   // tell your other devices it was deleted (an empty, newer profile wins).
   await putRecords(STORES.profile, [{ ...blankProfile(), updatedAt: new Date().toISOString() }]);
@@ -314,15 +315,34 @@ export async function saveDocumentFile(kind, file) {
   if (!DOC_KINDS[kind]) throw new Error('Unknown document type');
   if (file.size > MAX_DOC_BYTES) throw new Error('That file is over 10 MB. Try a smaller copy.');
   const data = await file.arrayBuffer();
+  const now = new Date().toISOString();
+  if (kind === 'cv') {
+    const current = await getDocument('cv');
+    // The same file again: keep it as it is (and its CV check).
+    if (current && sameBytes(current.data, data)) return current;
+    // A different CV: the one you had becomes an earlier version (CV history).
+    if (current) await archiveCv(current);
+  }
   markDocumentDeleted(kind, '');
-  await putRecords(STORES.documents, [{
+  const record = {
     id: kind,
     name: String(file.name || DOC_KINDS[kind].label).slice(0, 120),
     type: safeDocType(file.type, file.name),
     size: file.size,
-    uploadedAt: new Date().toISOString(),
+    uploadedAt: now,
     data,
-  }]);
+    ...(kind === 'cv' ? { versionId: makeId(), addedAt: now } : {}),
+  };
+  await putRecords(STORES.documents, [record]);
+  return record;
+}
+
+function sameBytes(a, b) {
+  if (!a || !b || a.byteLength !== b.byteLength) return false;
+  const x = new Uint8Array(a);
+  const y = new Uint8Array(b);
+  for (let i = 0; i < x.length; i += 1) if (x[i] !== y[i]) return false;
+  return true;
 }
 
 export async function removeDocument(kind) {
@@ -340,13 +360,16 @@ export const CV_CHECK_ID = 'cv-check';
 /** The saved CV check, or null if there isn't one for the CV you have now. */
 export async function getCvCheck(cv) {
   const saved = await getRecord(STORES.documents, CV_CHECK_ID);
-  return saved && cv && saved.cvUploadedAt === cv.uploadedAt ? saved : null;
+  if (!saved || !cv || saved.cvUploadedAt !== cv.uploadedAt) return null;
+  // Checks saved since CV history also name the CV's version.
+  return !saved.cvVersionId || saved.cvVersionId === cvVersionIdOf(cv) ? saved : null;
 }
 
 export async function saveCvCheck(cv, { score, label, toFix, ignored }) {
   await putRecords(STORES.documents, [{
     id: CV_CHECK_ID,
     cvUploadedAt: cv.uploadedAt,
+    cvVersionId: cvVersionIdOf(cv),
     checkedAt: new Date().toISOString(),
     score,
     label,
@@ -379,7 +402,11 @@ export function isRealPdf(doc) {
 }
 
 export async function openDocument(kind) {
-  const doc = await getDocument(kind);
+  openFile(await getDocument(kind));
+}
+
+/** Opens a saved file record (the CV, the LinkedIn PDF or an earlier CV). */
+export function openFile(doc) {
   if (!doc) return;
   const pdf = isRealPdf(doc);
   const url = URL.createObjectURL(new Blob([doc.data], { type: pdf ? FILE_TYPES.pdf : 'application/octet-stream' }));
@@ -392,4 +419,146 @@ export async function openDocument(kind) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+// ---- CV history (version 4.2) ----
+// Adding a different CV keeps the one before it as an earlier version, with its CV
+// check score at the time, so you can look back at what you sent. Earlier versions
+// sit in the documents store as 'cv-v:<version id>'; the newest MAX_CV_VERSIONS are
+// kept. Each CV has a version id from the moment it's added, so applications can
+// say which CV was sent (app.cvVersionId), and every device uses the same ids.
+
+export const MAX_CV_VERSIONS = 10;
+const VERSION_PREFIX = 'cv-v:';
+export const versionRecordId = (versionId) => `${VERSION_PREFIX}${versionId}`;
+export const isCvVersion = (record) => typeof record?.id === 'string' && record.id.startsWith(VERSION_PREFIX);
+
+/** A CV added before CV history existed gets an id from when it was added, the same on every device. */
+const legacyVersionId = (cv) => `added-${Date.parse(cv.uploadedAt) || 0}`;
+
+/** The version id of a CV record (the current one, or one from a backup or another device). */
+export function cvVersionIdOf(cv) {
+  return cv ? cv.versionId || legacyVersionId(cv) : '';
+}
+
+/** Earlier CVs, newest first, with their files. */
+export async function listCvVersions() {
+  const all = await getAllRecords(STORES.documents);
+  return all.filter(isCvVersion).sort((a, b) => String(b.addedAt).localeCompare(String(a.addedAt)));
+}
+
+export function getCvVersion(versionId) {
+  return getRecord(STORES.documents, versionRecordId(versionId));
+}
+
+/** The current CV or an earlier one, by version id; null if it's been deleted. */
+export async function findCv(versionId) {
+  if (!versionId) return null;
+  const cv = await getDocument('cv');
+  if (cv && cvVersionIdOf(cv) === versionId) return { ...cv, versionId, current: true };
+  return getCvVersion(versionId);
+}
+
+/**
+ * Keeps a CV as an earlier version (just before it's replaced), with its CV check.
+ * Only the newest MAX_CV_VERSIONS are kept.
+ */
+export async function archiveCv(cv, knownCheck) {
+  if (!cv?.data) return;
+  const versionId = cvVersionIdOf(cv);
+  const check = knownCheck !== undefined ? knownCheck : await getCvCheck(cv);
+  await putRecords(STORES.documents, [{
+    id: versionRecordId(versionId),
+    versionId,
+    name: cv.name,
+    type: cv.type,
+    size: cv.size,
+    addedAt: cv.addedAt || cv.uploadedAt,
+    check: check ? { score: check.score, label: check.label, toFix: check.toFix, ignored: check.ignored, checkedAt: check.checkedAt } : null,
+    updatedAt: new Date().toISOString(),
+    data: cv.data,
+  }]);
+  forgetVersionDeletions([versionId]);
+  await keepNewestCvVersions();
+}
+
+/** Deletes earlier CVs beyond the newest MAX_CV_VERSIONS. */
+export async function keepNewestCvVersions() {
+  for (const old of (await listCvVersions()).slice(MAX_CV_VERSIONS)) await deleteCvVersion(old.versionId);
+}
+
+export async function deleteCvVersion(versionId) {
+  rememberVersionDeletions([versionId]);
+  await deleteRecord(STORES.documents, versionRecordId(versionId));
+}
+
+/** Makes an earlier CV your current one again; the current one becomes an earlier version. */
+export async function makeCvCurrent(versionId) {
+  const version = await getCvVersion(versionId);
+  if (!version) return null;
+  const current = await getDocument('cv');
+  if (current) await archiveCv(current);
+  // Stamped now, so it counts as the newest CV on every device.
+  const uploadedAt = new Date().toISOString();
+  markDocumentDeleted('cv', '');
+  const record = { id: 'cv', versionId, name: version.name, type: version.type, size: version.size, addedAt: version.addedAt, uploadedAt, data: version.data };
+  await putRecords(STORES.documents, [record]);
+  if (version.check) await putRecords(STORES.documents, [{ ...version.check, id: CV_CHECK_ID, cvUploadedAt: uploadedAt, cvVersionId: versionId }]);
+  else await deleteRecord(STORES.documents, CV_CHECK_ID);
+  await deleteCvVersion(versionId);
+  return record;
+}
+
+// Deleted earlier versions, until sync has told your account: { versionId: deletedAt }.
+const VERSION_DELETIONS_KEY = 'jt-cv-versions-deleted';
+let versionDeletions = null; // kept in memory too, for windows that block localStorage
+
+function loadVersionDeletions() {
+  if (!versionDeletions) {
+    try {
+      const saved = JSON.parse(getPref(VERSION_DELETIONS_KEY, '{}'));
+      versionDeletions = saved && typeof saved === 'object' ? saved : {};
+    } catch {
+      versionDeletions = {};
+    }
+  }
+  return versionDeletions;
+}
+
+function saveVersionDeletions() {
+  setPref(VERSION_DELETIONS_KEY, JSON.stringify(versionDeletions));
+}
+
+function rememberVersionDeletions(ids) {
+  if (ids.length === 0) return;
+  const list = loadVersionDeletions();
+  const at = new Date().toISOString();
+  for (const id of ids) list[id] = at;
+  saveVersionDeletions();
+}
+
+function forgetVersionDeletions(ids) {
+  const list = loadVersionDeletions();
+  if (!ids.some((id) => id in list)) return;
+  for (const id of ids) delete list[id];
+  saveVersionDeletions();
+}
+
+/** Earlier CVs deleted here and not yet sent to the account. */
+export function pendingVersionDeletions() {
+  return { ...loadVersionDeletions() };
+}
+
+/** Called by sync once these deletions have reached the account. */
+export function versionDeletionsSent(sent) {
+  const list = loadVersionDeletions();
+  for (const [id, at] of Object.entries(sent)) if (list[id] === at) delete list[id];
+  saveVersionDeletions();
+}
+
+// Another tab deleted a version: read the list again next time.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === VERSION_DELETIONS_KEY) versionDeletions = null;
+  });
 }

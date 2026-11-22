@@ -18,6 +18,7 @@ import {
   showToast,
 } from '../ui.js';
 import { getApplication, saveApplication, deleteApplication } from '../store.js';
+import { findCv, openFile } from '../profile.js';
 import { STATUSES, statusInfo, withStatus, isOpen, isFollowUpDue, followUpText } from '../model.js';
 import { back, refresh } from '../router.js';
 import { googleCalendarUrl, openCalendarFile } from '../calendar.js';
@@ -33,6 +34,7 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
   const status = statusInfo(app.status);
   const postingUrl = safeHttpUrl(app.postingUrl);
   const timeline = [...app.statusHistory].reverse();
+  const cvSent = await findCv(app.cvVersionId);
 
   const screen = createScreen(html`
     <header class="topbar">
@@ -77,6 +79,13 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
             <a class="ext-link" href="${postingUrl}" target="_blank" rel="noopener noreferrer">
               ${hostOf(postingUrl)} ${icon('external')}<span class="visually-hidden"> (opens in a new tab)</span>
             </a>`)}
+          ${fact('CV sent', app.cvVersionId && (cvSent
+            ? html`
+              <span class="fact-row">
+                <span>${cvSent.name}${cvSent.current ? html` <span class="muted">· current</span>` : ''}</span>
+                <button type="button" class="text-btn small" data-action="open-cv">View</button>
+              </span>`
+            : html`<span class="muted">A CV you’ve since deleted</span>`))}
           ${fact('Date applied', app.appliedOn && html`${formatDate(app.appliedOn)} <span class="muted">· ${relativeDays(app.appliedOn, today)}</span>`)}
           ${fact('Follow-up', app.followUpOn && html`${formatDate(app.followUpOn)} <span class="muted">· ${relativeDays(app.followUpOn, today)}</span>`)}
         </dl>
@@ -126,6 +135,9 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
         break;
       case 'copy-email':
         await copyText(app.loginEmail);
+        break;
+      case 'open-cv':
+        openFile(cvSent);
         break;
       case 'calendar-file':
         openCalendarFile(app);

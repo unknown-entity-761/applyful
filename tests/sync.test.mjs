@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import * as store from '../app/js/store.js';
 import { STORES } from '../app/js/store.js';
 import { normalize } from '../app/js/model.js';
-import { saveProfile, getProfile, deleteProfileAndDocuments, saveDocumentFile, getDocument, removeDocument, saveCvCheck, getCvCheck } from '../app/js/profile.js';
+import { saveProfile, getProfile, deleteProfileAndDocuments, saveDocumentFile, getDocument, removeDocument, saveCvCheck, getCvCheck, listCvVersions, makeCvCurrent, deleteCvVersion, MAX_CV_VERSIONS } from '../app/js/profile.js';
 import { logIn, signOut, currentUser } from '../app/js/auth.js';
 import { planSync, planProfile, syncNow, forgetSyncState } from '../app/js/sync.js';
 
@@ -82,7 +82,7 @@ test('profile: newest wins, and an unsaved profile is never sent', () => {
 
 // ---- Two devices and a stand-in server ----
 
-const server = { rows: new Map(), profiles: new Map(), documents: new Map(), files: new Map(), clock: Date.parse('2026-11-22T00:00:00Z'), denied: false };
+const server = { rows: new Map(), profiles: new Map(), documents: new Map(), versions: new Map(), files: new Map(), clock: Date.parse('2026-11-22T00:00:00Z'), denied: false };
 const toPg = (v) => (v ? new Date(Date.parse(v)).toISOString().replace('Z', '+00:00') : v);
 const realFetch = globalThis.fetch;
 
@@ -123,7 +123,12 @@ async function fakeSupabase(url, options = {}) {
     for (const row of body) server.documents.set(row.kind, { ...row, uploaded_at: toPg(row.uploaded_at), updated_at: toPg(row.updated_at) });
     return json(201, null);
   }
-  const file = pathname.match(/^\/storage\/v1\/object\/(?:authenticated\/)?documents\/user-1\/(cv|linkedin)$/);
+  if (pathname === '/rest/v1/cv_versions' && method === 'GET') return json(200, [...server.versions.values()]);
+  if (pathname === '/rest/v1/cv_versions' && method === 'POST') {
+    for (const row of body) server.versions.set(row.id, { ...row, added_at: toPg(row.added_at), updated_at: toPg(row.updated_at) });
+    return json(201, null);
+  }
+  const file = pathname.match(/^\/storage\/v1\/object\/(?:authenticated\/)?documents\/user-1\/(cv|linkedin|cv-versions\/[^/]+)$/);
   if (file && method === 'POST') {
     server.files.set(file[1], new Uint8Array(await new Response(options.body).arrayBuffer()));
     return json(200, { Key: `documents/user-1/${file[1]}` });
@@ -163,6 +168,7 @@ beforeEach(async () => {
   server.rows.clear();
   server.profiles.clear();
   server.documents.clear();
+  server.versions.clear();
   server.files.clear();
   server.denied = false;
   await newDevice();
@@ -304,4 +310,131 @@ test('a file deleted on another device is removed once, not at every sync', asyn
   const second = await syncNow();
   assert.equal(first.applied, 0, 'nothing here to remove');
   assert.equal(second.applied, 0, 'and nothing applied again');
+});
+
+// ---- CV history (version 4.2) ----
+
+const cvFile = (name, ...bytes) => new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, ...bytes])], name, { type: 'application/pdf' });
+
+test('adding a different CV keeps the old one, with its score; the same file again changes nothing', async () => {
+  await saveDocumentFile('cv', cvFile('first.pdf', 1));
+  await saveCvCheck(await getDocument('cv'), { score: 61, label: 'Fair', toFix: 5, ignored: new Set() });
+  const again = await saveDocumentFile('cv', cvFile('first-copy.pdf', 1));
+  assert.equal(again.name, 'first.pdf', 'the same bytes: kept as it was');
+  assert.equal((await listCvVersions()).length, 0);
+  assert.ok(await getCvCheck(await getDocument('cv')), 'and its check is still valid');
+
+  await saveDocumentFile('cv', cvFile('second.pdf', 2));
+  const [earlier] = await listCvVersions();
+  assert.equal(earlier.name, 'first.pdf');
+  assert.equal(earlier.check.score, 61, 'the score it had');
+  assert.equal((await getDocument('cv')).name, 'second.pdf');
+  assert.equal(await getCvCheck(await getDocument('cv')), null, 'the new CV hasn’t been checked yet');
+});
+
+test('only the newest ten earlier CVs are kept', async () => {
+  for (let i = 0; i <= MAX_CV_VERSIONS + 1; i += 1) {
+    await saveDocumentFile('cv', cvFile(`cv-${i}.pdf`, i));
+    await new Promise((resolve) => setTimeout(resolve, 2)); // distinct "added" times
+  }
+  const versions = await listCvVersions();
+  assert.equal(versions.length, MAX_CV_VERSIONS);
+  assert.equal(versions[0].name, `cv-${MAX_CV_VERSIONS}.pdf`, 'newest first');
+  assert.ok(!versions.some((v) => v.name === 'cv-0.pdf'), 'the oldest was dropped');
+});
+
+test('making an earlier CV current swaps them, and brings back its check', async () => {
+  await saveDocumentFile('cv', cvFile('old.pdf', 1));
+  await saveCvCheck(await getDocument('cv'), { score: 70, label: 'Good', toFix: 3, ignored: new Set(['cliches']) });
+  await saveDocumentFile('cv', cvFile('new.pdf', 2));
+  const [old] = await listCvVersions();
+  await makeCvCurrent(old.versionId);
+  const current = await getDocument('cv');
+  assert.equal(current.name, 'old.pdf');
+  assert.equal(current.versionId, old.versionId, 'the same version id, so applications still point at it');
+  assert.equal((await getCvCheck(current)).score, 70);
+  assert.deepEqual((await listCvVersions()).map((v) => v.name), ['new.pdf']);
+});
+
+test('CV history syncs: earlier CVs, making one current, and deleting one reach the other device', async () => {
+  await logIn('alex@example.com', 'pw');
+  await saveDocumentFile('cv', cvFile('one.pdf', 1));
+  await saveDocumentFile('cv', cvFile('two.pdf', 2));
+  await syncNow({ confirmMove: () => true });
+  assert.equal(server.versions.size, 1);
+  const [oneId] = server.versions.keys();
+  assert.ok(server.files.has(`cv-versions/${oneId}`), 'the earlier file is in the private file store');
+
+  const deviceOneCv = await getDocument('cv'); // to put back later, as that device still has it
+
+  // Another device gets the current CV and the earlier one.
+  await newDevice();
+  await syncNow();
+  assert.equal((await getDocument('cv')).name, 'two.pdf');
+  assert.deepEqual((await listCvVersions()).map((v) => v.name), ['one.pdf']);
+
+  // There, "one" is made current again.
+  await makeCvCurrent(oneId);
+  await syncNow();
+  assert.equal(server.documents.get('cv').version_id, oneId);
+  assert.equal(server.versions.get(oneId).deleted, true);
+
+  // Back on the first device (it still has "two" as current): it swaps too, without losing "two".
+  await newDevice();
+  await store.putRecords(STORES.documents, [deviceOneCv]);
+  await syncNow({ confirmMove: () => true });
+  assert.equal((await getDocument('cv')).name, 'one.pdf');
+  assert.deepEqual((await listCvVersions()).map((v) => v.name), ['two.pdf']);
+
+  // Deleting an earlier CV deletes it from the account and its file.
+  const [two] = await listCvVersions();
+  await deleteCvVersion(two.versionId);
+  await syncNow();
+  assert.equal(server.versions.get(two.versionId).deleted, true);
+  assert.equal(server.files.has(`cv-versions/${two.versionId}`), false);
+});
+
+// ---- Fixes from the second review (22 Nov 2026) ----
+
+test('changes made after signing out never reach the account without asking', async () => {
+  await store.putMany([app('a', '2026-11-20T00:00:00Z'), app('b', '2026-11-20T00:00:00Z')]);
+  await logIn('alex@example.com', 'pw');
+  await syncNow({ confirmMove: () => true });
+  await signOut();
+
+  // Signed out: "Delete all applications from this device", then add a new one.
+  await store.clearAll();
+  await store.putMany([app('c', new Date().toISOString())]);
+
+  await logIn('alex@example.com', 'pw');
+  const asked = [];
+  await syncNow({ confirmMove: (info) => { asked.push(info.count); return true; } });
+  assert.deepEqual(asked, [1], 'logging in again asks before moving this device’s data in');
+  assert.equal(server.rows.get('a').deleted, false, 'the deletions made while signed out stayed on this device');
+  assert.equal(server.rows.get('b').deleted, false);
+  assert.ok(server.rows.has('c'), 'the new one was moved in, as agreed');
+  assert.deepEqual((await store.listApplications()).map((x) => x.id).sort(), ['a', 'b', 'c'], 'and the account’s came back');
+});
+
+test('an empty profile on a new device never wipes the account’s', async () => {
+  server.profiles.set('user-1', { data: { firstName: 'Alex', skills: ['SQL'] }, updated_at: pg('2026-11-20T00:00:00Z') });
+  await deleteProfileAndDocuments(); // a blank profile, stamped now
+  await logIn('alex@example.com', 'pw');
+  await syncNow({ confirmMove: () => true });
+  assert.equal((await getProfile()).firstName, 'Alex');
+  assert.equal(server.profiles.get('user-1').data.firstName, 'Alex');
+});
+
+test('a different CV in the account is kept in the CV history when this device’s replaces it', async () => {
+  await logIn('alex@example.com', 'pw');
+  await saveDocumentFile('cv', cvFile('in-account.pdf', 1));
+  await syncNow({ confirmMove: () => true });
+
+  // Another device, which added its own CV before signing in.
+  await newDevice();
+  await saveDocumentFile('cv', cvFile('this-device.pdf', 2));
+  await syncNow({ confirmMove: () => true });
+  assert.equal(server.documents.get('cv').name, 'this-device.pdf');
+  assert.deepEqual((await listCvVersions()).map((v) => v.name), ['in-account.pdf'], 'not lost: it’s an earlier CV now');
+  assert.equal([...server.versions.values()][0]?.name, 'in-account.pdf', 'and in the account’s history');
 });

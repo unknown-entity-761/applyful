@@ -15,12 +15,19 @@
 //
 // The first time an account syncs on a device that already has data, it asks before
 // moving that data into the account.
+//
+// Without an account, the same sync keeps an online copy for this browser, as a guest
+// (see auth.js), once you've agreed to it. A guest never gets asked about moving data:
+// the copy is this device's own.
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
-import { accessToken, currentUser, signOut } from './auth.js';
-import { STORES, getAllRecords, getRecord, putRecords, deleteRecord, pendingDeletions, deletionsSent, pendingUnsent, unsentSent } from './store.js';
+import { accessToken, onlineUser, signOut, startGuest, onlineCopyChoice, finishRemovingGuests, onSessionChange, setSyncWaiter } from './auth.js';
+import { STORES, getAllRecords, getRecord, putRecords, deleteRecord, pendingDeletions, deletionsSent, pendingUnsent, unsentSent, storageMode } from './store.js';
 import { normalize } from './model.js';
-import { normalizeProfile, isProfileEmpty, mergeIntoProfile, DOC_KINDS, CV_CHECK_ID, documentDeletedAt, markDocumentDeleted, safeDocType } from './profile.js';
+import {
+  normalizeProfile, isProfileEmpty, mergeIntoProfile, DOC_KINDS, CV_CHECK_ID, documentDeletedAt, markDocumentDeleted, safeDocType,
+  listCvVersions, versionRecordId, pendingVersionDeletions, versionDeletionsSent, archiveCv, cvVersionIdOf,
+} from './profile.js';
 import { getPref, setPref } from './prefs.js';
 
 const PAGE = 1000;
@@ -196,7 +203,7 @@ const checkFor = (check, doc) => (check && doc && time(check.cvUploadedAt) === t
 
 /** Brings the CV and LinkedIn files (and the CV check) up to date both ways. */
 async function syncDocuments(user, token) {
-  const rows = await rest('documents?select=kind,name,type,size,uploaded_at,deleted,cv_check,updated_at', token);
+  const rows = await rest('documents?select=kind,name,type,size,uploaded_at,deleted,cv_check,updated_at,version_id,added_at', token);
   const remote = new Map(rows.map((row) => [row.kind, row]));
   let applied = 0;
   let pushed = 0;
@@ -219,7 +226,14 @@ async function syncDocuments(user, token) {
           if (!local) continue;
         } else {
           const data = await files(`authenticated/${path}`, token);
-          const doc = { id: kind, name: String(row.name).slice(0, 120), type: safeDocType(row.type, row.name), size: data.byteLength, uploadedAt: toAppTime(row.uploaded_at), data };
+          const uploadedAt = toAppTime(row.uploaded_at);
+          const doc = { id: kind, name: String(row.name).slice(0, 120), type: safeDocType(row.type, row.name), size: data.byteLength, uploadedAt, data };
+          if (kind === 'cv') {
+            doc.versionId = row.version_id || cvVersionIdOf({ uploadedAt });
+            doc.addedAt = row.added_at ? toAppTime(row.added_at) : uploadedAt;
+            // A different CV replaces this device's: keep this one in the CV history.
+            if (local && cvVersionIdOf(local) !== doc.versionId) await archiveCv(local);
+          }
           await putRecords(STORES.documents, [doc]);
           if (kind === 'cv' && checkFor(row.cv_check, doc)) await putRecords(STORES.documents, [{ ...row.cv_check, id: CV_CHECK_ID }]);
         }
@@ -229,10 +243,27 @@ async function syncDocuments(user, token) {
       applied += 1;
     } else if (mine > theirs) {
       if (local) {
+        if (kind === 'cv' && row && !row.deleted && (row.version_id || cvVersionIdOf({ uploadedAt: toAppTime(row.uploaded_at) })) !== cvVersionIdOf(local)) {
+          // A different CV in the account (added elsewhere, or before this device's was
+          // moved in): keep it in the CV history rather than lose it.
+          const data = await files(`authenticated/${path}`, token);
+          const uploadedAt = toAppTime(row.uploaded_at);
+          const theirs = {
+            id: 'cv', name: String(row.name).slice(0, 120), type: safeDocType(row.type, row.name), size: data.byteLength, uploadedAt, data,
+            versionId: row.version_id || cvVersionIdOf({ uploadedAt }), addedAt: row.added_at ? toAppTime(row.added_at) : uploadedAt,
+          };
+          applying = true;
+          try {
+            await archiveCv(theirs, checkFor(row.cv_check, theirs));
+          } finally {
+            applying = false;
+          }
+        }
         await files(path, token, { method: 'POST', body: local.data, type: uploadType(local) });
         await upsert('documents', [{
           user_id: user.id, kind, name: local.name, type: local.type, size: local.size,
           uploaded_at: local.uploadedAt, deleted: false, cv_check: localCheck ? { ...localCheck, id: undefined } : null, updated_at: local.uploadedAt,
+          version_id: kind === 'cv' ? cvVersionIdOf(local) : null, added_at: kind === 'cv' ? local.addedAt || local.uploadedAt : null,
         }], 'user_id,kind', token);
       } else {
         await files(path, token, { method: 'DELETE' }).catch((error) => { if (error.status !== 404 && error.status !== 400) throw error; });
@@ -256,11 +287,81 @@ async function syncDocuments(user, token) {
         await upsert('documents', [{
           user_id: user.id, kind, name: row.name, type: row.type, size: row.size,
           uploaded_at: row.uploaded_at, deleted: false, cv_check: { ...localCheck, id: undefined }, updated_at: row.updated_at,
+          version_id: row.version_id, added_at: row.added_at,
         }], 'user_id,kind', token);
         pushed += 1;
       }
     }
   }
+  return { applied, pushed };
+}
+
+// ---- Earlier CVs (CV history, version 4.2) ----
+// Each earlier CV is a row in cv_versions plus a file at <user id>/cv-versions/<id>.
+// Versions don't change once kept, so a sync only adds the ones a side is missing and
+// passes on deletions (kept as deleted = true, like applications). The list is short
+// (10 at most), so it's fetched whole each time.
+
+async function syncCvVersions(user, token) {
+  const rows = await rest('cv_versions?select=id,name,type,size,added_at,cv_check,deleted,updated_at', token);
+  const remote = new Map(rows.map((row) => [row.id, row]));
+  const local = new Map((await listCvVersions()).map((version) => [version.versionId, version]));
+  const deletions = pendingVersionDeletions();
+  const path = (id) => `documents/${user.id}/cv-versions/${id}`;
+  let applied = 0;
+  let pushed = 0;
+
+  applying = true;
+  try {
+    for (const row of rows) {
+      const mine = local.get(row.id);
+      if (row.deleted) {
+        if (mine && time(mine.updatedAt) <= time(row.updated_at)) {
+          await deleteRecord(STORES.documents, versionRecordId(row.id));
+          local.delete(row.id);
+          applied += 1;
+        }
+        continue;
+      }
+      if (deletions[row.id] && time(deletions[row.id]) >= time(row.updated_at)) continue; // deleted here since: sent below
+      if (mine && time(mine.updatedAt) >= time(row.updated_at)) continue;
+      const data = mine?.data ?? await files(`authenticated/${path(row.id)}`, token);
+      const version = {
+        id: versionRecordId(row.id), versionId: row.id, name: String(row.name).slice(0, 120), type: safeDocType(row.type, row.name),
+        size: data.byteLength, addedAt: toAppTime(row.added_at), check: row.cv_check ?? null, updatedAt: toAppTime(row.updated_at), data,
+      };
+      await putRecords(STORES.documents, [version]);
+      local.set(row.id, version);
+      applied += 1;
+    }
+  } finally {
+    applying = false;
+  }
+
+  for (const version of local.values()) {
+    const theirs = remote.get(version.versionId);
+    if (theirs && time(theirs.updated_at) >= time(version.updatedAt)) continue;
+    if (!theirs || theirs.deleted) await files(path(version.versionId), token, { method: 'POST', body: version.data, type: uploadType(version) });
+    await upsert('cv_versions', [{
+      user_id: user.id, id: version.versionId, name: version.name, type: version.type, size: version.size,
+      added_at: version.addedAt, cv_check: version.check, deleted: false, updated_at: version.updatedAt,
+    }], 'user_id,id', token);
+    pushed += 1;
+  }
+
+  const sent = {};
+  for (const [id, deletedAt] of Object.entries(deletions)) {
+    sent[id] = deletedAt;
+    if (local.has(id)) continue; // kept again since
+    const theirs = remote.get(id);
+    if (!theirs || theirs.deleted || time(theirs.updated_at) > time(deletedAt)) continue; // nothing to delete, or changed since
+    await files(path(id), token, { method: 'DELETE' }).catch((error) => { if (error.status !== 404 && error.status !== 400) throw error; });
+    await upsert('cv_versions', [{
+      user_id: user.id, id, name: '', type: '', size: 0, added_at: null, cv_check: null, deleted: true, updated_at: deletedAt,
+    }], 'user_id,id', token);
+    pushed += 1;
+  }
+  versionDeletionsSent(sent);
   return { applied, pushed };
 }
 
@@ -299,7 +400,7 @@ export function forgetSyncState(userId) {
 let status = { state: 'off', lastSyncedAt: '', error: '' };
 
 export function syncStatus() {
-  const user = currentUser();
+  const user = onlineUser();
   if (!user) return { state: 'off', lastSyncedAt: '', error: '' };
   return { ...status, lastSyncedAt: status.lastSyncedAt || loadState(user.id)?.lastSyncedAt || '' };
 }
@@ -321,7 +422,7 @@ let lastRunAt = 0;
 function askToMove({ email, count, hasProfile }) {
   if (typeof window === 'undefined' || typeof window.confirm !== 'function') return true;
   const what = [count > 0 ? `${count} application${count === 1 ? '' : 's'}` : '', hasProfile ? 'your profile' : ''].filter(Boolean).join(' and ');
-  return window.confirm(`Move the ${what} on this device into your account (${email})?\n\nThey’ll then be on every device you sign in on. Choose Cancel to sign out and keep them only on this device.`);
+  return window.confirm(`Move the ${what} on this device into your account (${email})?\n\nThey’ll then be on every device you sign in on. Choose Cancel to sign out and keep them separate from this account.`);
 }
 
 /**
@@ -344,8 +445,27 @@ export function syncNow(options = {}) {
   return running;
 }
 
+// A small record in the app's own storage naming the accounts (and guests) synced on
+// this device. If it's missing while this device remembers syncing, the storage was
+// cleared or lost (the sign-in was kept): fetch everything again, not just what's new.
+const SYNC_MARKER_ID = 'sync-marker';
+
+// Changes made on this device belong to the session they were made in: never send them
+// to another account (or to the same one after signing out and in again). And the next
+// time an account syncs here, it's treated as new, so it asks before moving data in.
+onSessionChange(({ from }) => {
+  deletionsSent(pendingDeletions());
+  unsentSent([...pendingUnsent()]);
+  versionDeletionsSent(pendingVersionDeletions());
+  for (const kind of Object.keys(DOC_KINDS)) markDocumentDeleted(kind, '');
+  if (from) forgetSyncState(from);
+});
+
+// A guest isn't deleted while a sync is still uploading to it (auth.js waits for this).
+setSyncWaiter(() => running ?? Promise.resolve());
+
 async function run({ confirmMove = askToMove } = {}) {
-  const user = currentUser();
+  const user = onlineUser();
   const token = user ? await accessToken() : null;
   if (!user || !token) {
     setStatus({ state: 'off', error: '' });
@@ -358,13 +478,16 @@ async function run({ confirmMove = askToMove } = {}) {
     // First sync for this account on this device: ask before moving existing data in.
     const [apps, profileRecord] = await Promise.all([getAllRecords(STORES.applications), getRecord(STORES.profile, 'me')]);
     const hasProfile = Boolean(profileRecord) && !isProfileEmpty(normalizeProfile(profileRecord));
-    if ((apps.length > 0 || hasProfile) && !(await confirmMove({ email: user.email, count: apps.length, hasProfile }))) {
+    if (!user.guest && (apps.length > 0 || hasProfile) && !(await confirmMove({ email: user.email, count: apps.length, hasProfile }))) {
       await signOut();
       setStatus({ state: 'off', error: '' });
       return { cancelled: true };
     }
     state = { lastPulledAt: EPOCH, lastPulledId: '', lastPushedAt: EPOCH, lastSyncedAt: '' };
   }
+  const marker = await getRecord(STORES.documents, SYNC_MARKER_ID);
+  const markedUsers = Array.isArray(marker?.users) ? marker.users : [];
+  if (!firstSync && !markedUsers.includes(user.id)) state = { ...state, lastPulledAt: EPOCH, lastPulledId: '' };
 
   setStatus({ state: 'syncing', error: '' });
   const startedAt = new Date().toISOString();
@@ -387,6 +510,8 @@ async function run({ confirmMove = askToMove } = {}) {
     let localProfile = await getRecord(STORES.profile, 'me');
     let profileStep = planProfile(localProfile, remoteProfile);
     const filled = (profile) => profile && !isProfileEmpty(normalizeProfile(profile));
+    // First sync here: an empty profile on this device never wipes the account's.
+    if (firstSync && !filled(localProfile) && filled(remoteProfile?.data)) profileStep = 'apply';
     if (firstSync && filled(localProfile) && filled(remoteProfile?.data)) {
       // First sign-in on a device with its own profile: combine the two rather than
       // letting one replace the other. The newer one's details come first; the other
@@ -421,8 +546,11 @@ async function run({ confirmMove = askToMove } = {}) {
       await upsert('profiles', [{ user_id: user.id, data: normalizeProfile(localProfile), updated_at: localProfile.updatedAt }], 'user_id', token);
     }
 
-    // 4. CV and LinkedIn files, and the CV check
+    // 4. CV and LinkedIn files, the CV check, and earlier CVs
     const docs = await syncDocuments(user, token);
+    const versions = await syncCvVersions(user, token);
+    docs.applied += versions.applied;
+    docs.pushed += versions.pushed;
 
     const newest = remoteRows[remoteRows.length - 1];
     state = {
@@ -432,6 +560,14 @@ async function run({ confirmMove = askToMove } = {}) {
       lastSyncedAt: new Date().toISOString(),
     };
     saveState(user.id, state);
+    if (!markedUsers.includes(user.id)) {
+      applying = true;
+      try {
+        await putRecords(STORES.documents, [{ id: SYNC_MARKER_ID, users: [...markedUsers, user.id].slice(-20) }]);
+      } finally {
+        applying = false;
+      }
+    }
     setStatus({ state: 'ok', lastSyncedAt: state.lastSyncedAt, error: '' });
     const changedHere = plan.apply.length + plan.removeLocal.length + (profileStep === 'apply' ? 1 : 0) + docs.applied;
     return { applied: changedHere, removed: plan.removeLocal.length, pushed: plan.push.length + (profileStep === 'push' ? 1 : 0) + docs.pushed };
@@ -446,16 +582,41 @@ async function run({ confirmMove = askToMove } = {}) {
 
 let timer = 0;
 function schedule(delay) {
-  if (!currentUser()) return;
+  if (!onlineUser()) return;
   clearTimeout(timer);
   timer = setTimeout(() => syncNow(), delay);
 }
 
+/** True when this device has something worth keeping a copy of. */
+export async function hasDataToKeep() {
+  const [apps, profile, cv, linkedin] = await Promise.all([
+    getAllRecords(STORES.applications),
+    getRecord(STORES.profile, 'me'),
+    getRecord(STORES.documents, 'cv'),
+    getRecord(STORES.documents, 'linkedin'),
+  ]);
+  return apps.length > 0 || (Boolean(profile) && !isProfileEmpty(normalizeProfile(profile))) || Boolean(cv || linkedin);
+}
+
+/**
+ * Without an account: starts the online copy if it's switched on, or asks about it
+ * (once) when there's first something to keep. Nothing happens in a window that can't
+ * keep data, or before there's anything to copy, so a visit alone never creates a guest.
+ */
+async function keepOnlineCopy(askOnlineCopy) {
+  if (onlineUser() || storageMode() === 'memory') return;
+  const choice = onlineCopyChoice();
+  if (choice === 'off' || !(await hasDataToKeep())) return;
+  if (choice === 'on') await startGuest();
+  else askOnlineCopy();
+}
+
 /**
  * Starts syncing in the background. `onRemoteChanges` is called after a sync
- * brought changes from other devices, so the screen can redraw.
+ * brought changes from other devices, so the screen can redraw. `askOnlineCopy` shows
+ * the question about keeping a copy online without an account.
  */
-export function startSync({ onRemoteChanges = () => {} } = {}) {
+export function startSync({ onRemoteChanges = () => {}, askOnlineCopy = () => {} } = {}) {
   // Another tab synced: use its record of what's been synced.
   window.addEventListener('storage', (event) => {
     if (event.key?.startsWith('jt-sync-')) memory.delete(event.key);
@@ -464,16 +625,26 @@ export function startSync({ onRemoteChanges = () => {} } = {}) {
     const result = await syncNow();
     if (result?.applied > 0) onRemoteChanges(result);
   };
+  const syncOrStart = () => (onlineUser() ? runAndReport() : keepOnlineCopy(askOnlineCopy));
   window.addEventListener('foliofy:data-changed', () => {
-    if (!applying) schedule(CHANGE_DELAY_MS);
+    if (applying) return;
+    if (onlineUser()) schedule(CHANGE_DELAY_MS);
+    else keepOnlineCopy(askOnlineCopy);
   });
   window.addEventListener('foliofy:auth-changed', (event) => {
-    if (event.detail.signedIn) runAndReport();
-    else setStatus({ state: 'off', error: '' });
+    if (event.detail.online) runAndReport();
+    else {
+      setStatus({ state: 'off', error: '' });
+      keepOnlineCopy(askOnlineCopy); // signed out: back to this browser's own copy, if it's on
+    }
   });
-  window.addEventListener('online', () => runAndReport());
+  window.addEventListener('online', () => {
+    finishRemovingGuests();
+    syncOrStart();
+  });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && Date.now() - lastRunAt > RESYNC_AFTER_MS) runAndReport();
+    if (document.visibilityState === 'visible' && Date.now() - lastRunAt > RESYNC_AFTER_MS) syncOrStart();
   });
-  if (currentUser()) runAndReport();
+  finishRemovingGuests();
+  syncOrStart();
 }

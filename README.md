@@ -57,6 +57,10 @@ The PDF reader is [pdf.js](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2
 
 The first time the app opens on a device with nothing saved, it starts at **#/welcome**: upload a CV (read on the device, then the profile form opens with what was found highlighted) or fill it in by hand. Only the first name is required, nothing is saved until Confirm, and "Skip for now" goes to Home. When accounts arrive, this runs straight after signing up. Code: `app/js/views/welcome.js`, plus a `setup` option in `profile-import.js` and `profile-edit.js`.
 
+### CV history (version 4.2)
+
+Adding a different CV keeps the previous one as an earlier version, with its CV check score (`archiveCv` in `app/js/profile.js`); the same file again changes nothing. The newest 10 are kept, in the documents store as `cv-v:<version id>`. Every CV gets a version id when it's added (older CVs get one from their upload time, the same on every device), and applications record the CV they were sent with (`cvVersionId`, chosen on the form as "CV sent", shown on the application). Profile → CV history (`app/js/views/cv-history.js`) lists them: view, make current, or delete. Earlier CVs sync through the `cv_versions` table and `<user id>/cv-versions/<id>` files (`syncCvVersions` in `sync.js`), with deletions kept as `deleted = true`; when another device's CV replaces this one's, this one is kept in the history first. Backups carry them too (`cvVersions`).
+
 ### Computer layout
 
 On screens 960 pixels wide or more, a side menu replaces the bottom tab bar, and on Jobs the applications list stays on the left with an application's details on the right (`app/js/views/shell.js`, and the "Computer layout" block at the end of `styles.css`). Phones are unchanged. Screens that save data send a `foliofy:data-changed` event (from `store.js`), which keeps the list beside the details up to date.
@@ -69,13 +73,26 @@ Signing in will be optional: the app keeps working without an account, and signi
 
 **Sync (built):** while signed in, applications and the profile are kept the same on every device and backed up to the account (`app/js/sync.js`). The newest copy of each record wins, by `updatedAt`, as with backups. Each sync fetches only what changed in the account since the last one (the server stamps `synced_at`), applies anything newer, then sends this device's changes; deleted applications are remembered (`store.js`) and sent as `deleted = true`. It runs on sign-in, on start-up, when the app comes back on screen or online, and a few seconds after a change. The first sync for an account on a device that already has data asks before moving it in (Cancel signs out). CV and LinkedIn files sync too: the files go in the private `documents` bucket (`<user id>/cv`, `<user id>/linkedin`), and a row per file in the `documents` table says which version is newest and carries the CV check for that CV.
 
+**Online copy without an account (built):** once a device has something to keep, a one-time question asks whether to keep a copy online (`showOnlineCopyQuestion` in `consent.js`; changeable in Settings → Backup and storage). If yes, the app starts a guest session with Supabase's anonymous sign-in (`startGuest` in `auth.js`) and syncs exactly as an account does, without the "move into your account" question. Only that browser holds the guest's key, so it brings data back if the app's storage is lost, but not after clearing the browser; creating an account is the way to have it on other devices. Logging in or confirming a new account replaces the guest: its online copy is deleted (files, then the guest itself via `delete_my_account`), and this device's data moves into the account. Turning the copy off deletes it too (or as soon as the app is back online), after any sync still uploading to it finishes. Guests are never started in a window that can't keep data, or before there's anything to copy. When an account replaces a guest, the choice resets, so signing out later asks again instead of quietly starting a new copy.
+
+**Changes belong to the session they were made in** (`onSessionChange` in `sync.js`): when this device starts syncing as someone else (signing in or out, a guest starting or ending), deletions and other changes not yet sent are dropped rather than sent to the wrong account, and the previous account's sync record is forgotten, so its next sync here asks before moving data in. A marker in the app's own storage notices when that storage was lost while the sign-in was kept, and fetches everything again.
+
 **Analytics (with consent):** a cookie banner asks first (`app/js/views/consent.js`); only after "Accept analytics" (or Settings → Analytics cookies) does the app set the `foliofy_id` cookie and send anonymous events (screen names without ids, feature names, app version, layout, signed in or not) to the `events` table in Supabase (`app/js/analytics.js`). The Cookie policy (`legal.js`, `cookies`) lists everything stored.
 
 One-time setup in the Supabase dashboard:
 
 1. **SQL Editor → New query**: paste `supabase/schema.sql` and run it. It creates the tables, the private file store for CVs, and the rules that let each person see only their own data.
 2. **Authentication → URL Configuration**: Site URL `https://unknown-entity-761.github.io/foliofy/`, and add `http://localhost:5173/**` to Redirect URLs for trying it on this computer.
-3. Google and Apple sign-in come later (they need a Google Cloud project and the paid Apple Developer account).
+3. **Authentication → Sign In / Providers**: switch on **Allow anonymous sign-ins** (for the online copy without an account). Supabase limits new guests to 30 an hour from one internet address; a "prove you're human" check (Cloudflare Turnstile) can be added later if that isn't enough.
+4. Google and Apple sign-in come later (they need a Google Cloud project and the paid Apple Developer account).
+
+### Deleting unused guest copies
+
+The privacy policy says a guest's online copy is deleted after 12 months unused. `unused_guests()` in `schema.sql` finds them; the Edge Function in `supabase/functions/delete-unused-guests` deletes each one's files and then the guest. Set it up once (before November 2027, when the first guests could reach 12 months):
+
+1. **Edge Functions → Deploy a new function → Via Editor**: name it `delete-unused-guests`, paste `supabase/functions/delete-unused-guests/index.ts`, and deploy. Then in the function's **Details**, switch **Enforce JWT verification** off: with the new publishable and secret keys, the scheduled call can fail that check. That's safe, because the function only ever deletes what's due, whoever starts it.
+2. **Integrations → Cron**: enable it, then **Create job**: name `delete-unused-guests`, schedule `0 3 * * *` (daily at 3 am UTC), type **Supabase Edge Function**, function `delete-unused-guests`, method POST.
+3. The next day, check the function's **Logs**: a run shows `{"deleted":0,"failed":0}` until guests start reaching 12 months.
 
 ## Preview label
 
@@ -163,6 +180,7 @@ flowchart LR
 | `app/vendor/tesseract/` | Tesseract OCR and its English model (copied from npm by `tools/vendor.ps1`) |
 | `package.json` | Scripts for the tests and the offline file list, and the readers npm fetches; the app itself has no build step |
 | `supabase/schema.sql` | The online database: tables, file store and security rules (run once in Supabase) |
+| `supabase/functions/delete-unused-guests/` | Daily clean-up: deletes guest copies nobody has opened for 12 months |
 | `tests/` | Automated tests and sample CVs (`npm.cmd test`) |
 | `tools/build-sw.mjs` | Writes the offline file list and cache name into `app/sw.js` (`npm.cmd run build-sw`; GitHub runs it before publishing) |
 | `app/js/views/fields.js` | Labelled form fields and error messages shared by the forms |

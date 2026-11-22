@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import * as store from '../app/js/store.js';
 import { buildBackup, importBackup, backupReminderDue } from '../app/js/backup.js';
 import { normalize, SCHEMA_VERSION } from '../app/js/model.js';
-import { getProfile, saveProfile, deleteProfileAndDocuments, saveDocumentFile, getDocument, saveCvCheck, getCvCheck, needsSetup } from '../app/js/profile.js';
+import { getProfile, saveProfile, deleteProfileAndDocuments, saveDocumentFile, getDocument, saveCvCheck, getCvCheck, needsSetup, listCvVersions } from '../app/js/profile.js';
 
 const application = (fields) => normalize({ company: 'Acme', title: 'Analyst', ...fields });
 const backupFile = (data) => new File([typeof data === 'string' ? data : JSON.stringify(data)], 'backup.json', { type: 'application/json' });
@@ -120,6 +120,27 @@ test('backups carry the CV, the LinkedIn PDF and the last CV check', async () =>
 
   const again = await importBackup(backupFile(backup));
   assert.equal(again.filesRestored, 0, 'the same files are not restored twice');
+});
+
+test('backups carry the CV history, and which CV each application was sent with', async () => {
+  await saveDocumentFile('cv', new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 1])], 'first.pdf', { type: 'application/pdf' }));
+  await saveCvCheck(await getDocument('cv'), { score: 55, label: 'Fair', toFix: 6, ignored: new Set() });
+  const firstId = (await getDocument('cv')).versionId;
+  await store.putMany([application({ id: 'sent', cvVersionId: firstId })]);
+  await saveDocumentFile('cv', new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 2])], 'second.pdf', { type: 'application/pdf' }));
+  const backup = JSON.parse(JSON.stringify(await buildBackup()));
+  assert.equal(backup.cvVersions.length, 1);
+
+  await store.clearAll();
+  await deleteProfileAndDocuments();
+  const result = await importBackup(backupFile(backup));
+  assert.equal(result.filesRestored, 2, 'the current CV and the earlier one');
+  const [earlier] = await listCvVersions();
+  assert.equal(earlier.name, 'first.pdf');
+  assert.equal(earlier.versionId, firstId);
+  assert.equal(earlier.check.score, 55);
+  assert.equal((await store.getApplication('sent')).cvVersionId, firstId, 'the application still points at the CV it was sent with');
+  assert.equal((await getDocument('cv')).name, 'second.pdf');
 });
 
 test('a damaged file in a backup is skipped, and the rest still restores', async () => {
