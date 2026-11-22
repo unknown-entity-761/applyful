@@ -494,7 +494,7 @@ const CHECKS = [
       if (hit) quotes.push(line);
     }
     if (found.size === 0) {
-      cv.strong({ id: 'spelling', title: 'No common misspellings', detail: 'None of the most common CV spelling mistakes were found.' });
+      cv.strong({ id: 'spelling', title: 'None of the common misspellings', detail: 'This is a basic check for about 100 mistakes often seen on CVs, not a full spelling check. Run your word processor’s spell check too.' });
       return;
     }
     cv.fix({

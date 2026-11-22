@@ -7,9 +7,9 @@
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import * as store from '../app/js/store.js';
-import { buildBackup, importBackup } from '../app/js/backup.js';
+import { buildBackup, importBackup, backupReminderDue } from '../app/js/backup.js';
 import { normalize, SCHEMA_VERSION } from '../app/js/model.js';
-import { getProfile, saveProfile, deleteProfileAndDocuments } from '../app/js/profile.js';
+import { getProfile, saveProfile, deleteProfileAndDocuments, saveDocumentFile, getDocument, saveCvCheck, getCvCheck } from '../app/js/profile.js';
 
 const application = (fields) => normalize({ company: 'Acme', title: 'Analyst', ...fields });
 const backupFile = (data) => new File([typeof data === 'string' ? data : JSON.stringify(data)], 'backup.json', { type: 'application/json' });
@@ -53,7 +53,7 @@ test('a backup restores into an empty device', async () => {
   await deleteProfileAndDocuments();
   const result = await importBackup(backupFile(backup));
 
-  assert.deepEqual(result, { added: 2, updated: 0, unchanged: 0, skipped: 0, profileRestored: true });
+  assert.deepEqual(result, { added: 2, updated: 0, unchanged: 0, skipped: 0, profileRestored: true, filesRestored: 0 });
   assert.deepEqual((await store.listApplications()).map((app) => app.company).sort(), ['Acme', 'Globex']);
   assert.equal((await getProfile()).firstName, 'Alex');
 });
@@ -74,7 +74,7 @@ test('restoring merges: the most recently changed copy wins', async () => {
     ],
   }));
 
-  assert.deepEqual(result, { added: 0, updated: 1, unchanged: 1, skipped: 2, profileRestored: false });
+  assert.deepEqual(result, { added: 0, updated: 1, unchanged: 1, skipped: 2, profileRestored: false, filesRestored: 0 });
   assert.equal((await store.getApplication('old-here')).title, 'Backup, newer');
   assert.equal((await store.getApplication('new-here')).title, 'Here, newer');
 });
@@ -98,4 +98,54 @@ test('files that are not backups are refused with a clear message', async () => 
     /newer version of the app/,
   );
   assert.equal((await store.listApplications()).length, 0, 'nothing was saved');
+});
+
+test('backups carry the CV, the LinkedIn PDF and the last CV check', async () => {
+  const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0, 1, 2, 250, 251, 252, 253, 254, 255]);
+  await saveDocumentFile('cv', new File([pdfBytes], 'my-cv.pdf', { type: 'application/pdf' }));
+  await saveDocumentFile('linkedin', new File([new Uint8Array([1, 2, 3])], 'Profile.pdf', { type: 'application/pdf' }));
+  const cv = await getDocument('cv');
+  await saveCvCheck(cv, { score: 84, label: 'Good', toFix: 2, ignored: new Set(['cliches']) });
+  const backup = JSON.parse(JSON.stringify(await buildBackup()));
+  assert.equal(backup.documents.length, 2);
+  assert.equal(backup.cvCheck.score, 84);
+
+  await deleteProfileAndDocuments();
+  const result = await importBackup(backupFile(backup));
+  assert.equal(result.filesRestored, 2);
+  const restored = await getDocument('cv');
+  assert.equal(restored.name, 'my-cv.pdf');
+  assert.deepEqual([...new Uint8Array(restored.data)], [...pdfBytes], 'the file comes back byte for byte');
+  assert.deepEqual((await getCvCheck(restored)).ignored, ['cliches']);
+
+  const again = await importBackup(backupFile(backup));
+  assert.equal(again.filesRestored, 0, 'the same files are not restored twice');
+});
+
+test('a damaged file in a backup is skipped, and the rest still restores', async () => {
+  const result = await importBackup(backupFile({
+    applications: [application({ id: 'ok' })],
+    documents: [{ id: 'cv', data: '%%% not base64 %%%', uploadedAt: '2026-01-01T00:00:00.000Z' }, { id: 'passport', data: 'AAAA', uploadedAt: '2026-01-01T00:00:00.000Z' }],
+  }));
+  assert.equal(result.filesRestored, 0);
+  assert.equal(result.added, 1);
+  assert.equal(await getDocument('cv'), null);
+});
+
+test('the backup reminder comes when there is something worth backing up', () => {
+  const now = new Date('2026-11-22T10:00:00Z');
+  const made = (createdAt, updatedAt = createdAt) => ({ createdAt, updatedAt });
+  const fresh = [made('2026-11-21T10:00:00Z')];
+  const three = [made('2026-11-21T10:00:00Z'), made('2026-11-21T11:00:00Z'), made('2026-11-21T12:00:00Z')];
+
+  assert.equal(backupReminderDue([], { now }), false, 'nothing to back up');
+  assert.equal(backupReminderDue(fresh, { now }), false, 'one new application is not enough yet');
+  assert.equal(backupReminderDue(three, { now }), true, 'three applications and never backed up');
+  assert.equal(backupReminderDue([made('2026-11-14T09:00:00Z')], { now }), true, 'an application a week old');
+  assert.equal(backupReminderDue(three, { now, snoozedUntil: '2026-11-25T00:00:00Z' }), false, 'Later hides it');
+
+  const backedUp = '2026-11-01T00:00:00Z';
+  assert.equal(backupReminderDue([made('2026-10-01T00:00:00Z')], { now, lastBackupAt: backedUp }), false, 'nothing changed since');
+  assert.equal(backupReminderDue([made('2026-10-01T00:00:00Z', '2026-11-05T00:00:00Z')], { now, lastBackupAt: backedUp }), true, 'changed, 3 weeks later');
+  assert.equal(backupReminderDue([made('2026-10-01T00:00:00Z', '2026-11-20T00:00:00Z')], { now, lastBackupAt: '2026-11-15T00:00:00Z' }), false, 'changed, but backed up a week ago');
 });

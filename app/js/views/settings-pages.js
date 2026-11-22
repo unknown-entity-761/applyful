@@ -1,8 +1,8 @@
 // The pages inside Settings: notifications, backup/restore/storage, and add to home screen.
 
-import { html, raw, icon, createScreen, mount, plural, showToast } from '../ui.js';
+import { html, raw, icon, createScreen, mount, plural, showToast, formatTimestamp } from '../ui.js';
 import { listApplications, clearAll, isPersisted, storageMode } from '../store.js';
-import { exportBackup, importBackup } from '../backup.js';
+import { exportBackup, importBackup, lastBackupAt } from '../backup.js';
 import { canPromptInstall, promptInstall, isInstalled } from '../install.js';
 import { getProfile, isProfileEmpty, getDocument, deleteProfileAndDocuments } from '../profile.js';
 import { subHeader, wireBack } from './components.js';
@@ -77,6 +77,7 @@ export async function renderData(ctx) {
       <section class="panel">
         <h2 class="panel-title">Backup</h2>
         <p>Your applications and profile are saved only on this device. Back up now and then, and before you clear your browser or switch phones.</p>
+        ${lastBackupAt() ? html`<p class="muted">Last backup: ${formatTimestamp(lastBackupAt())}</p>` : html`<p class="muted">You haven’t backed up on this device yet.</p>`}
         <div class="stack">
           <button type="button" class="btn primary block" data-action="export" ${count === 0 && !hasProfile && raw('disabled')}>
             ${icon('download')} Back up to a file
@@ -86,7 +87,7 @@ export async function renderData(ctx) {
             <input type="file" accept=".json,application/json" class="visually-hidden">
           </label>
         </div>
-        <p class="hint">Backups include your applications and profile, but not your CV or LinkedIn files. Keep copies of those yourself.</p>
+        <p class="hint">Backups include your applications, profile, CV and LinkedIn files, and your last CV check.</p>
         <p class="result" aria-live="polite" hidden></p>
       </section>
 
@@ -124,7 +125,7 @@ export async function renderData(ctx) {
     switch (event.target.closest('[data-action]')?.dataset.action) {
       case 'export': {
         const { count: exported, saved } = await exportBackup();
-        if (saved) showResult(`Backup created with ${plural(exported, 'application')}${hasProfile ? ' and your profile' : ''}. Keep the file somewhere safe, like Google Drive or iCloud.`);
+        if (saved) showResult(`Backup created with ${plural(exported, 'application')}${hasProfile ? ', your profile and files' : ''}. Keep the file somewhere safe, like Google Drive or iCloud.`);
         break;
       }
       case 'clear-apps':
@@ -154,6 +155,7 @@ export async function renderData(ctx) {
       if (r.unchanged > 0) parts.push(`${r.unchanged} already up to date`);
       if (r.skipped > 0) parts.push(`${r.skipped} skipped`);
       if (r.profileRestored) parts.push('profile restored');
+      if (r.filesRestored > 0) parts.push(`${plural(r.filesRestored, 'file')} restored`);
       await renderData(ctx);
       showToast(`Restored: ${parts.join(', ')}`, { duration: 6000 });
     } catch (error) {

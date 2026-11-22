@@ -299,7 +299,7 @@ export async function removeDocument(kind) {
 // The last result for your saved CV: its score, how many things to fix, and which
 // suggestions you chose to ignore. Kept next to the CV, and removed with it.
 
-const CV_CHECK_ID = 'cv-check';
+export const CV_CHECK_ID = 'cv-check';
 
 /** The saved CV check, or null if there isn't one for the CV you have now. */
 export async function getCvCheck(cv) {

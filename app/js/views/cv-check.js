@@ -201,6 +201,7 @@ function resultBody(state) {
         <p class="score-file">${meta}</p>
       </div>
     </section>
+    <p class="privacy-note">${icon('info')} The score is a guide to how easily job portals and recruiters can read your CV, not a prediction of whether you’ll get the job. What works best differs by country and industry.</p>
     <p class="privacy-note">${icon('shield')} Checked on this device with ${result.checks} checks. Your CV wasn’t uploaded.</p>
 
     ${active.length > 0 && html`

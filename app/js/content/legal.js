@@ -149,7 +149,7 @@ export const LEGAL_PAGES = {
             ['CV and LinkedIn files', 'The files you add', 'This device', 'No one'],
             ['CV check results', 'Your score, the suggestions and the lines they quote from your CV, and which suggestions you ignored', 'This device', 'No one'],
             ['Preferences', 'Light or dark mode, sort order, dismissed prompts', 'This device', 'No one'],
-            ['Backups', 'A copy of your applications and profile', 'Wherever you save the file', 'Anyone you give the file to'],
+            ['Backups', 'A copy of your applications, profile, CV and LinkedIn files', 'Wherever you save the file', 'Anyone you give the file to'],
             ['Usage data (only if you switch it on)', 'Features used, errors, device and browser type, app version, approximate region, a random device ID', '[Analytics provider], for [14 months]', 'Us, and [analytics provider] on our behalf'],
           ],
         },
@@ -285,13 +285,14 @@ export const LEGAL_PAGES = {
           'Tracking applications: status, portal, the email you used, follow-up dates, notes and history.',
           'Filling in your profile from your CV or LinkedIn PDF, on this device and without AI. Scanned CVs are read with OCR.',
           'Checking your CV: a score, what to fix first and what’s already strong.',
-          'Backing up to a file and restoring it, on this phone or a new one.',
+          'Adding a follow-up date to your calendar, with a reminder on the day.',
+          'Backing up to a file (including your CV) and restoring it, on this phone or a new one.',
         ],
         after: ['In this preview, everything is saved only on this device, so back up now and then.'],
       },
       {
         heading: 'Coming soon',
-        list: ['Adding follow-up dates to your phone’s calendar, so you get a reminder.'],
+        list: ['A short setup the first time you open the app, to fill in your profile from your CV or by hand.'],
       },
       {
         heading: 'Later',
@@ -338,6 +339,7 @@ export const LEGAL_PAGES = {
         heading: 'Follow-ups',
         paragraphs: [
           'Give an application a follow-up date. When it’s due, it shows on Home. Open the application to mark it Done or snooze it for a week.',
+          'To get a reminder from your calendar too, open the application and tap Calendar app (iPhone, Outlook and most Android calendars) or Google Calendar.',
         ],
       },
       {

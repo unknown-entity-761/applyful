@@ -657,6 +657,8 @@ label.btn:focus-within { outline: 3px solid var(--brand); outline-offset: 2px; }
 .status-option[aria-pressed="true"] { border-color: var(--st-fg); background: var(--st-bg); color: var(--st-fg); }
 
 .facts { display: grid; gap: 14px; margin: 0; }
+.calendar-row { display: grid; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.calendar-label { font-size: 15px; font-weight: 600; }
 .fact { display: grid; gap: 2px; }
 .fact dt { font-size: 13px; font-weight: 600; color: var(--text-2); }
 .fact dd { margin: 0; overflow-wrap: anywhere; }

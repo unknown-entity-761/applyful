@@ -18,8 +18,9 @@ import {
   showToast,
 } from '../ui.js';
 import { getApplication, saveApplication, deleteApplication, putMany } from '../store.js';
-import { STATUSES, statusInfo, withStatus, isFollowUpDue, followUpText } from '../model.js';
+import { STATUSES, statusInfo, withStatus, isOpen, isFollowUpDue, followUpText } from '../model.js';
 import { back, refresh } from '../router.js';
+import { googleCalendarUrl, openCalendarFile } from '../calendar.js';
 
 export async function renderDetail({ id }, ctx, scrollY = 0) {
   const app = await getApplication(id);
@@ -79,6 +80,14 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
           ${fact('Date applied', app.appliedOn && html`${formatDate(app.appliedOn)} <span class="muted">· ${relativeDays(app.appliedOn, today)}</span>`)}
           ${fact('Follow-up', app.followUpOn && html`${formatDate(app.followUpOn)} <span class="muted">· ${relativeDays(app.followUpOn, today)}</span>`)}
         </dl>
+        ${app.followUpOn && isOpen(app) && html`
+          <div class="calendar-row">
+            <p class="calendar-label">Get a reminder in your calendar</p>
+            <div class="callout-actions">
+              <button type="button" class="btn small" data-action="calendar-file">${icon('clock')} Calendar app</button>
+              <a class="btn small" href="${googleCalendarUrl(app)}" target="_blank" rel="noopener noreferrer">Google Calendar<span class="visually-hidden"> (opens in a new tab)</span></a>
+            </div>
+          </div>`}
       </section>
 
       ${app.notes && html`
@@ -117,6 +126,10 @@ export async function renderDetail({ id }, ctx, scrollY = 0) {
         break;
       case 'copy-email':
         await copyText(app.loginEmail);
+        break;
+      case 'calendar-file':
+        openCalendarFile(app);
+        showToast('Open the file to add it to your calendar');
         break;
       case 'followup-done':
         await update({ ...app, followUpOn: '' }, 'Follow-up done', ctx);

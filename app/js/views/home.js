@@ -1,13 +1,20 @@
 // Home: a welcome, the counts, and the follow-ups that are due. Nothing else,
 // so it stays calm. The full list lives on the Applications tab.
 
-import { html, icon, createScreen, mount, todayISO, formatDate, plural, showToast } from '../ui.js';
+import { html, icon, createScreen, mount, todayISO, formatDate, formatTimestamp, plural, showToast } from '../ui.js';
 import { listApplications } from '../store.js';
 import { statusInfo, isOpen, isFollowUpDue, countByStatus } from '../model.js';
 import { APP_NAME } from '../config.js';
 import { getProfile, saveProfile, isNamePromptDismissed, dismissNamePrompt, MAX_NAME_LENGTH } from '../profile.js';
 import { tabBar, appCard, emptyState } from './components.js';
 import { openApplications } from './applications.js';
+import { exportBackup, backupReminderDue, backupReminderSettings, snoozeBackupReminder } from '../backup.js';
+import { isInstalled, canPromptInstall, promptInstall } from '../install.js';
+import { getPref, setPref } from '../prefs.js';
+
+const INSTALL_CARD_KEY = 'jt-install-card-dismissed';
+const isPhone = () => window.matchMedia('(pointer: coarse)').matches;
+const isIPhone = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 const STAT_TILES = ['applied', 'interview', 'offer'];
 
@@ -30,6 +37,12 @@ export async function renderHome(ctx) {
   const greeting = firstName ? `${apps.length > 0 ? 'Welcome back' : 'Welcome'}, ${firstName}` : 'Welcome';
   const askForName = !firstName && !isNamePromptDismissed();
 
+  // One reminder at a time: adding the app to the Home Screen first (it keeps data
+  // safer, and on iPhone the Home Screen app has its own storage), then backing up.
+  const showInstall = isPhone() && !isInstalled() && getPref(INSTALL_CARD_KEY, '') !== '1';
+  const backupSettings = backupReminderSettings();
+  const showBackup = !showInstall && backupReminderDue(apps, backupSettings);
+
   const screen = createScreen(html`
     <header class="topbar topbar-large">
       <div class="welcome">
@@ -49,6 +62,9 @@ export async function renderHome(ctx) {
           </div>
           <button type="button" class="link-btn quiet" data-action="dismiss-name">Not now</button>
         </form>`}
+
+      ${showInstall && installCard(apps.length)}
+      ${showBackup && backupCard(backupSettings.lastBackupAt)}
 
       ${apps.length === 0 ? emptyState() : html`
         <section class="group" aria-labelledby="overview-heading">
@@ -88,8 +104,22 @@ export async function renderHome(ctx) {
       openApplications({ filter: tile.dataset.filter });
       return;
     }
-    if (event.target.closest('[data-action="dismiss-name"]')) {
+    const action = event.target.closest('[data-action]')?.dataset.action;
+    if (action === 'dismiss-name') {
       dismissNamePrompt();
+      renderHome(ctx);
+    } else if (action === 'install') {
+      promptInstall().then(() => renderHome(ctx));
+    } else if (action === 'dismiss-install') {
+      setPref(INSTALL_CARD_KEY, '1');
+      renderHome(ctx);
+    } else if (action === 'backup-now') {
+      exportBackup().then(({ saved }) => {
+        if (saved) showToast('Backed up. Keep the file somewhere safe, like Google Drive or iCloud.');
+        renderHome(ctx);
+      });
+    } else if (action === 'snooze-backup') {
+      snoozeBackupReminder();
       renderHome(ctx);
     }
   });
@@ -107,4 +137,36 @@ export async function renderHome(ctx) {
   });
 
   mount(screen, ctx);
+}
+
+function installCard(appCount) {
+  const iPhoneNote = !isIPhone() ? '' : appCount === 0
+    ? 'On iPhone, do it before adding anything: the Home Screen app keeps its own data, separate from Safari.'
+    : 'On iPhone, the Home Screen app starts empty. Back up here first (Profile, menu, Backup), then restore the file there.';
+  return html`
+    <div class="callout info" role="note">
+      <p class="callout-title">${icon('smartphone')} Add ${APP_NAME} to your Home Screen</p>
+      <p>It opens like an app, and your browser is less likely to clear what you've saved.</p>
+      ${iPhoneNote && html`<p>${iPhoneNote}</p>`}
+      <div class="callout-actions">
+        ${canPromptInstall()
+          ? html`<button type="button" class="btn small primary" data-action="install">Install</button>`
+          : html`<a class="btn small primary" href="#/settings/install">Show me how</a>`}
+        <button type="button" class="btn small" data-action="dismiss-install">Not now</button>
+      </div>
+    </div>`;
+}
+
+function backupCard(lastBackupAt) {
+  return html`
+    <div class="callout info" role="note">
+      <p class="callout-title">${icon('download')} Back up your applications</p>
+      <p>${lastBackupAt
+        ? `They're saved only on this device, and they've changed since your last backup on ${formatTimestamp(lastBackupAt)}.`
+        : "They're saved only on this device, and you haven't backed up yet."}</p>
+      <div class="callout-actions">
+        <button type="button" class="btn small primary" data-action="backup-now">Back up now</button>
+        <button type="button" class="btn small" data-action="snooze-backup">Later</button>
+      </div>
+    </div>`;
 }
